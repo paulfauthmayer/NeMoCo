@@ -26,7 +26,7 @@ class DenseExpert(Layer):
     def build(self, input_shape):
         '''alpha and beta are the pool of weights over all experts at the given layer'''
         self.alpha = self.add_weight(
-            shape=(self.experts, input_shape[0][-1], self.units),
+            shape=(self.experts, self.units, input_shape[0][-1]),
             initializer="random_normal",
             name="weights",
             trainable=True,
@@ -44,7 +44,7 @@ class DenseExpert(Layer):
         w = self.get_expert_weights(gate_perc)
         b = self.get_expert_biases(gate_perc)
         print(f"Expert call {self.name}: {x.shape=} {gate_perc.shape=} {w.shape=} {b.shape=} ")
-        result = tf.matmul(x, w) # TODO: this screws up the shape, why?
+        result = (w @ x[..., None])[..., 0]
         result = result + b
         return result
 

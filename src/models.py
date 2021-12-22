@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Layer, Dense, Input
+from tensorflow.keras.layers import Layer, Dense, Input, ELU
 
 from training_parameters import TrainingParameters
 
@@ -37,13 +37,13 @@ class DenseExpert(Layer):
             name="biases",
             trainable=True,
         )
-        print(f"Experts build {self.name}: {input_shape=} {self.alpha.shape=} {self.beta.shape=}")
+        # print(f"Experts build {self.name}: {input_shape=} {self.alpha.shape=} {self.beta.shape=}")
 
     def call(self, inputs):
         x, gate_perc = inputs
         w = self.get_expert_weights(gate_perc)
         b = self.get_expert_biases(gate_perc)
-        print(f"Expert call {self.name}: {x.shape=} {gate_perc.shape=} {w.shape=} {b.shape=} ")
+        # print(f"Expert call {self.name}: {x.shape=} {gate_perc.shape=} {w.shape=} {b.shape=} ")
         result = (w @ x[..., None])[..., 0]
         result = result + b
         return result
@@ -61,19 +61,21 @@ class DenseExpert(Layer):
         return tf.reduce_sum(r, axis=1)
 
 
-def create_model(p: TrainingParameters):
+def create_model(p: TrainingParameters) -> Model:
 
-    gating_input = Input(shape=(len(p.gating_input_cols,)))
-    expert_input = Input(shape=(len(p.expert_input_cols,)))
+    gating_input = Input(shape=(len(p.gating_input_cols,)), name="gating_input")
+    expert_input = Input(shape=(len(p.expert_input_cols,)), name="expert_input")
 
     # Gating Network
-    x = Dense(p.gating_layer_shapes[0])(gating_input)
-    x = Dense(p.gating_layer_shapes[1])(x)
-    gating_perc = Dense(p.num_experts)(x)
+    x = Dense(p.gating_layer_shapes[0], activation='elu')(gating_input)
+    x = Dense(p.gating_layer_shapes[1], activation='elu')(x)
+    gating_perc = Dense(p.num_experts, activation='softmax')(x)
 
     # Expert Network
-    x = DenseExpert(p.expert_layer_shapes[0], p.num_experts)([expert_input, gating_perc])
+    x = DenseExpert(p.expert_layer_shapes[0], p.num_experts,)([expert_input, gating_perc])
+    x = ELU()(x)
     x = DenseExpert(p.expert_layer_shapes[1], p.num_experts)([x, gating_perc])
+    x = ELU()(x)
     y = DenseExpert(len(p.output_cols), p.num_experts)([x, gating_perc])
 
     model = tf.keras.Model(

@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
-
+from pathlib import Path
 from tensorflow.keras.optimizers import Adam
 
 class TrainingParameters:
-    def __init__(self, dataset_path) -> None:
+    def __init__(self, dataset_path : Path, dataset_norm_path : Path) -> None:
         # architecture
         self.num_experts = 8
         self.expert_layer_shapes = [512, 512]
@@ -24,6 +24,7 @@ class TrainingParameters:
 
         self.train_val_test_ratios = [0.70, 0.15, 0.15]
         self.dataset_path = dataset_path
+        self.dataset_norm_path = dataset_norm_path
 
         self.gating_input_cols = self._data_head.filter(
             regex=r"velocity_\w_([7-9]|1[0-2])$"
@@ -35,8 +36,8 @@ class TrainingParameters:
             .drop(self.output_cols, axis=1)
             .columns
         )
-        return
 
+        # self.num_samples = 73425
         with open(dataset_path, "r") as f:
             self.num_samples = sum(1 for _ in f) - 1  # -1 because we use csvs
 

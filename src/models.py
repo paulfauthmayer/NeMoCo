@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Dense, Flatten, Conv2D, Layer
+from tensorflow.keras.layers import Layer, Dense, Input
 
 from training_parameters import TrainingParameters
 
@@ -9,8 +9,8 @@ class DenseExpert(Layer):
     def __init__(
         #TODO: define activation function for layer
         self,
-        units=32,
-        experts=8,
+        units,
+        experts,
         trainable=True,
         name=None,
         dtype=None,
@@ -25,7 +25,6 @@ class DenseExpert(Layer):
 
     def build(self, input_shape):
         '''alpha and beta are the pool of weights over all experts at the given layer'''
-        print(f"input_shape: {input_shape}")
         self.alpha = self.add_weight(
             shape=(self.experts, input_shape[0][-1], self.units),
             initializer="random_normal",
@@ -38,91 +37,48 @@ class DenseExpert(Layer):
             name="biases",
             trainable=True,
         )
+        print(f"Experts build {self.name}: {input_shape=} {self.alpha.shape=} {self.beta.shape=}")
 
     def call(self, inputs):
         x, gate_perc = inputs
         w = self.get_expert_weights(gate_perc)
         b = self.get_expert_biases(gate_perc)
-        return tf.matmul(x, w) + b
+        print(f"Expert call {self.name}: {x.shape=} {gate_perc.shape=} {w.shape=} {b.shape=} ")
+        result = tf.matmul(x, w) # TODO: this screws up the shape, why?
+        result = result + b
+        return result
 
     def get_expert_weights(self, gate_perc):
-        print(f"{self.alpha.shape=}")
-        print(f"{gate_perc.shape=}")
-        a = self.alpha                      # n_exp * neurons_in * neurons_out
         a = tf.expand_dims(self.alpha, 0)   # 1 * n_exp * neurons_in * neurons_out
-        gate_perc                           # bs * n_exp
         gate_perc = tf.expand_dims(tf.expand_dims(gate_perc, -1), -1) # bs * n_exp * 1 * 1
-        r = a * gate_perc
-        print(f"{r.shape=}")
+        r = gate_perc * a
         return tf.reduce_sum(r, axis=1)
 
     def get_expert_biases(self, gate_perc):
-        print(f"{self.beta.shape=}")
-        print(f"{gate_perc.shape=}")
-        b = self.beta                       # n_exp * neurons
-        b = tf.expand_dims(b, 0)            # 1 * n_exp * neurons
-        gate_perc                           # bs * n_exp
-        gate_perc = tf.expand_dims(gate_perc, -1)
-        r = b * gate_perc
-        print(f"{r.shape=}")
+        b = tf.expand_dims(self.beta, 0)            # 1 * n_exp * neurons
+        gate_perc = tf.expand_dims(gate_perc, -1) # bs * n_exp * 1 * 1
+        r = gate_perc * b
         return tf.reduce_sum(r, axis=1)
 
 
-class Gating(Model):
-    def __init__(self, p: TrainingParameters, *args, **kwargs):
+def create_model(p: TrainingParameters):
 
-        super(Gating, self).__init__(*args, **kwargs)
+    gating_input = Input(shape=(len(p.gating_input_cols,)))
+    expert_input = Input(shape=(len(p.expert_input_cols,)))
 
-        self.my_layers = []
+    # Gating Network
+    x = Dense(p.gating_layer_shapes[0])(gating_input)
+    x = Dense(p.gating_layer_shapes[1])(x)
+    gating_perc = Dense(p.num_experts)(x)
 
-        self.my_layers.append(Dense(p.gating_layer_shapes[0]))
-        self.my_layers.append(Dense(p.gating_layer_shapes[1]))
-        self.my_layers.append(Dense(p.num_experts))
+    # Expert Network
+    x = DenseExpert(p.expert_layer_shapes[0], p.num_experts)([expert_input, gating_perc])
+    x = DenseExpert(p.expert_layer_shapes[1], p.num_experts)([x, gating_perc])
+    y = DenseExpert(len(p.output_cols), p.num_experts)([x, gating_perc])
 
-    def call(self, x):
-        for layer in self.my_layers:
-            x = layer(x)
-        return x
+    model = tf.keras.Model(
+        inputs=[gating_input, expert_input],
+        outputs=[y]
+    )
 
-
-class Motion(Model):
-    def __init__(self, p: TrainingParameters, *args, **kwargs):
-
-        super(Motion, self).__init__(*args, **kwargs)
-
-        self._layers = []
-
-        self._layers.append(DenseExpert(p.expert_layer_shapes[0]))
-        self._layers.append(DenseExpert(p.expert_layer_shapes[1]))
-        self._layers.append(DenseExpert(len(p.output_cols)))
-
-    def call(self, x):
-        # set weights like this:
-        # self.dense1.set_weights([x * 3 for x in self.dense1.get_weights()])
-        x_experts, gating_perc = x
-        for layer in self.layers:
-            x = layer([x_experts, gating_perc])
-
-        return x_experts
-
-
-class NeMoCo(Model):
-    def __init__(self, p, *args, **kwargs):
-
-        super(NeMoCo, self).__init__(*args, **kwargs)
-
-        self.gating = Gating(p)
-        self.experts = Motion(p)
-
-    def call(self, x):
-        x_gating, x_experts = x
-        gating_perc = self.gating(x_gating)
-        print(f"{gating_perc=}")
-        print(f"{self.experts.weights=}")
-        y = self.experts([x_experts, gating_perc])
-        print(f"{y.shape=}")
-        return y
-    
-    def summary(self):
-        self.gating.summary()
-        self.experts.summary()
+    return model

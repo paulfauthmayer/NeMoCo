@@ -9,7 +9,7 @@ from tensorflow._api.v2 import data
 from tensorflow.keras.optimizers import Adam
 from tensorflow.python.ops.gen_math_ops import exp
 
-from models import NeMoCo, Gating
+from models import create_model
 from training_parameters import TrainingParameters
 
 @tf.function
@@ -25,12 +25,16 @@ def train(dataset_path, num_experts=8):
 
     p = TrainingParameters(dataset_path)
 
-    model = NeMoCo(p)
-    gating_in = tf.ones((p.batch_size, 3))
-    expert_in = tf.zeros((p.batch_size, 3))
-    model([gating_in, expert_in])
+    model = create_model(p)
     model.summary()
+
+    gating_in = tf.ones((p.batch_size, len(p.gating_input_cols)))
+    expert_in = tf.ones((p.batch_size, len(p.expert_input_cols)))
+    print("=+"*10,'builduing',"+="*10)
     model([gating_in, expert_in])
+    print("=+"*10,'calling',"+="*10)
+    model([gating_in, expert_in])
+    print(model([gating_in, expert_in]).shape)
 
     # # assemble datasets
     # dataset = tf.data.experimental.make_csv_dataset(

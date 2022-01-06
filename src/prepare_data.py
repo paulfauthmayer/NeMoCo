@@ -51,9 +51,7 @@ def prepare_data(
 
     # get headers and datatypes
     shared_params = {"sep": ",", "engine": "python", "encoding": "utf-8-sig"}
-    input_headers = pd.read_csv(
-        input_motions[0], **shared_params
-    ).columns
+    input_headers = pd.read_csv(input_motions[0], nrows=0, **shared_params).columns
     input_dtypes = {
         col: str if col == "sequence_name" else np.float64 for col in input_headers
     }

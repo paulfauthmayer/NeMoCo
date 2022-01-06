@@ -33,8 +33,8 @@ if __name__ == "__main__":
     train_loss = tf.keras.metrics.Mean(name="train_loss")
     train_accuracy = tf.keras.metrics.MeanAbsoluteError(name="train_accuracy")
 
-    test_loss = tf.keras.metrics.Mean(name="test_loss")
-    test_accuracy = tf.keras.metrics.MeanAbsoluteError(name="test_accuracy")
+    val_loss = tf.keras.metrics.Mean(name="val_loss")
+    val_accuray = tf.keras.metrics.MeanAbsoluteError(name="val_accuracy")
 
     @tf.function
     def train_step(X_gating, X_expert, Y):
@@ -55,8 +55,8 @@ if __name__ == "__main__":
     def test_step(X_gating, X_expert, Y):
         predictions = model([X_gating, X_expert], training=False)
         loss = loss_object(Y, predictions)
-        test_loss(loss)
-        test_accuracy(Y, predictions)
+        val_loss(loss)
+        val_accuray(Y, predictions)
 
     # pick dataset and prepare subsets for training
     # TODO: automatically select the correct dataset - if not found, generate!
@@ -72,8 +72,8 @@ if __name__ == "__main__":
         # Reset the metrics at the start of each epoch
         train_loss.reset_states()
         train_accuracy.reset_states()
-        test_loss.reset_states()
-        test_accuracy.reset_states()
+        val_loss.reset_states()
+        val_accuray.reset_states()
 
         # TRAINING
         for i, batch in tqdm(
@@ -96,6 +96,6 @@ if __name__ == "__main__":
             f"Epoch {epoch + 1}, "
             f"Loss: {train_loss.result():.6f}, "
             f"Mean Absolute Error: {train_accuracy.result() * 100}, "
-            f"Test Loss: {test_loss.result():.6f}, "
-            f"Test MAE: {test_accuracy.result() * 100}"
+            f"Val Loss: {val_loss.result():.6f}, "
+            f"Val MAE: {val_accuray.result() * 100}"
         )

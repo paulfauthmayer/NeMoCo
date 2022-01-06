@@ -60,6 +60,46 @@ class DenseExpert(Layer):
         r = gate_perc * b
         return tf.reduce_sum(r, axis=1)
 
+class NeMoCoModel(tf.keras.Model):
+    def train_step(self, data):
+        # unpack the data
+        x_expert = tf.sparse.to_dense(data["expert_input"])
+        x_gating = tf.sparse.to_dense(data["gating_input"])
+        y = tf.sparse.to_dense(data["output"])
+
+        with tf.GradientTape() as tape:
+
+            # training=True is only needed if there are layers with different
+            # behavior during training versus inference (e.g. Dropout).
+            y_pred = self([x_gating, x_expert], training=True)
+            loss = self.compiled_loss(y, y_pred, regularization_losses=self.losses)
+
+        # compute gradients
+        gradients = tape.gradient(loss, self.trainable_variables)
+
+        # update weights
+        self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+
+        # update metrics
+        self.compiled_metrics.update_state(y, y_pred)
+
+        return {m.name: m.result() for m in self.metrics}
+
+    def test_step(self, data):
+        # unpack the data
+        x_expert = tf.sparse.to_dense(data["expert_input"])
+        x_gating = tf.sparse.to_dense(data["gating_input"])
+        y = tf.sparse.to_dense(data["output"])
+
+        # Compute predictions
+        y_pred = self([x_gating, x_expert], training=False)
+        # Updates the metrics tracking the loss
+        self.compiled_loss(y, y_pred, regularization_losses=self.losses)
+        # Update the metrics.
+        self.compiled_metrics.update_state(y, y_pred)
+
+        return {m.name: m.result() for m in self.metrics}
+
 
 def create_model(p: TrainingParameters) -> Model:
 
@@ -78,7 +118,7 @@ def create_model(p: TrainingParameters) -> Model:
     x = ELU()(x)
     y = DenseExpert(len(p.output_cols), p.num_experts)([x, gating_perc])
 
-    model = tf.keras.Model(
+    model = NeMoCoModel(
         inputs=[gating_input, expert_input],
         outputs=[y]
     )

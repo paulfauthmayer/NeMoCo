@@ -25,38 +25,8 @@ if __name__ == "__main__":
     # instantiate model
     model = create_model(p)
     model.summary()
-
-    # shared variables for train and test steps
     optimizer = p.optimizer(**p.optimizer_settings)
-    loss_object = tf.keras.losses.MeanSquaredError()
-
-    train_loss = tf.keras.metrics.Mean(name="train_loss")
-    train_accuracy = tf.keras.metrics.MeanAbsoluteError(name="train_accuracy")
-
-    val_loss = tf.keras.metrics.Mean(name="val_loss")
-    val_accuray = tf.keras.metrics.MeanAbsoluteError(name="val_accuracy")
-
-    @tf.function
-    def train_step(X_gating, X_expert, Y):
-        with tf.GradientTape() as tape:
-
-            # training=True is only needed if there are layers with different
-            # behavior during training versus inference (e.g. Dropout).
-            predictions = model([X_gating, X_expert], training=True)
-            loss = loss_object(Y, predictions)
-
-        gradients = tape.gradient(loss, model.trainable_variables)
-        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-
-        train_loss(loss)
-        train_accuracy(Y, predictions)
-
-    @tf.function
-    def test_step(X_gating, X_expert, Y):
-        predictions = model([X_gating, X_expert], training=False)
-        loss = loss_object(Y, predictions)
-        val_loss(loss)
-        val_accuray(Y, predictions)
+    model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])
 
     # pick dataset and prepare subsets for training
     # TODO: automatically select the correct dataset - if not found, generate!
@@ -66,36 +36,10 @@ if __name__ == "__main__":
     val_ds = load_dataset(dataset_dir / "val.tfrecords", p)
 
     # compile model and start training
-    model.compile(optimizer=optimizer)
-
-    for epoch in tqdm(range(p.num_epochs)):
-        # Reset the metrics at the start of each epoch
-        train_loss.reset_states()
-        train_accuracy.reset_states()
-        val_loss.reset_states()
-        val_accuray.reset_states()
-
-        # TRAINING
-        for i, batch in tqdm(
-            enumerate(train_ds),
-            total=math.ceil(p.num_samples * p.train_val_test_ratios[0] / p.batch_size),
-        ):
-            X_expert = tf.sparse.to_dense(batch["expert_input"])
-            X_gating = tf.sparse.to_dense(batch["gating_input"])
-            Y = tf.sparse.to_dense(batch["output"])
-            train_step(X_gating, X_expert, Y)
-
-        # VALIDATION
-        for i, batch in enumerate(val_ds):
-            X_expert = tf.sparse.to_dense(batch["expert_input"])
-            X_gating = tf.sparse.to_dense(batch["gating_input"])
-            Y = tf.sparse.to_dense(batch["output"])
-            test_step(X_gating, X_expert, Y)
-
-        print(
-            f"Epoch {epoch + 1}, "
-            f"Loss: {train_loss.result():.6f}, "
-            f"Mean Absolute Error: {train_accuracy.result() * 100}, "
-            f"Val Loss: {val_loss.result():.6f}, "
-            f"Val MAE: {val_accuray.result() * 100}"
-        )
+    model.fit(
+        train_ds,
+        batch_size=p.batch_size,
+        epochs=p.num_epochs,
+        validation_data=val_ds,
+        verbose=1,
+    )

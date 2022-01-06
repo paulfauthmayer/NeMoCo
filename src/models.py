@@ -23,6 +23,14 @@ class DenseExpert(Layer):
         self.units = units
         self.experts = experts
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "units": self.units,
+            "experts": self.experts,
+        })
+        return config
+
     def build(self, input_shape):
         '''alpha and beta are the pool of weights over all experts at the given layer'''
         self.alpha = self.add_weight(

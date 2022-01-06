@@ -46,7 +46,7 @@ def prepare_data(
     output_directory: Path,
     store_mann_version: bool,
     prefix: str = "",
-    use_fingers: bool = False
+    use_fingers: bool = False,
 ):
 
     # get headers and datatypes
@@ -58,44 +58,47 @@ def prepare_data(
     output_dtypes = np.float64
 
     # read datasets
-    output_df = pd.concat(
-        pd.read_csv(path,  **shared_params)
-        for path in output_motions
-    )
+    output_df = pd.concat(pd.read_csv(path, **shared_params) for path in output_motions)
 
     # check for trash data hidden in first columns
+    print(f"Checking file {output_motions} for invalid data")
     for i, val in tqdm(enumerate(output_df["pose_root_pos_x"]), total=len(output_df)):
         try:
             np.float64(val)
         except:
-            print(i, val)
+            print(f"Incorrect value {val} in line {i}")
 
     input_df = pd.concat(
         pd.read_csv(path, dtype=input_dtypes, **shared_params) for path in input_motions
     )
 
     # check for trash data hidden in first columns
-    for i,val in enumerate(input_df["pose_root_pos_x"]):
+    print(f"Checking file {input_motions} for invalid data")
+    for i, val in tqdm(enumerate(input_df["pose_root_pos_x"])):
         try:
             np.float64(val)
         except:
-            print(i, val)
+            print(f"Incorrect value {val} in line {i}")
 
     # drop columns we don't need
+    print("Dropping unnecessary columns")
     input_df = input_df.drop("sequence_name", axis=1)
     if not use_fingers:
         finger_regex = r"_(thumb)|(index)|(middle)|(ring)|(pinky)_"
-        input_df = input_df.drop(input_df.filter(regex=finger_regex).columns,axis=1)
-        output_df = output_df.drop(output_df.filter(regex=finger_regex).columns,axis=1)
-    
+        input_df = input_df.drop(input_df.filter(regex=finger_regex).columns, axis=1)
+        output_df = output_df.drop(output_df.filter(regex=finger_regex).columns, axis=1)
+
     # get metrics required for normalization
+    print("Calculate standardization parameters")
     input_df_norm = input_df.agg(["mean", "std"])
     output_df_norm = output_df.agg(["mean", "std"])
 
     # combine dataframes into a single file
+    print("combine dataframes")
     combined_df = pd.concat([input_df, output_df.add_prefix("out_")], axis=1)
     combined_norm = pd.concat([input_df_norm, output_df_norm], axis=1)
 
+    print("store dataframes")
     prefix_snake = f"{prefix}{' ' if prefix else ''}"
     combined_df.to_csv(
         output_directory / f"{prefix_snake}motion_data.csv", header=True, index=False
@@ -114,17 +117,23 @@ def prepare_data(
         )
 
         input_df_norm.to_csv(
-            output_directory / f"{prefix}InputNorm.txt", sep=" ", header=False, index=False
+            output_directory / f"{prefix}InputNorm.txt",
+            sep=" ",
+            header=False,
+            index=False,
         )
         output_df_norm.to_csv(
-            output_directory / f"{prefix}OutputNorm.txt", sep=" ", header=False, index=False
+            output_directory / f"{prefix}OutputNorm.txt",
+            sep=" ",
+            header=False,
+            index=False,
         )
 
         if prefix:
             input_df.drop("sequence_name", axis=1).to_csv(
                 output_directory / f"{prefix}Input.csv", sep=",", index=False
             )
-            
+
             output_df.to_csv(
                 output_directory / f"{prefix}Output.csv", sep=",", index=False
             )

@@ -1,9 +1,8 @@
 import argparse
-import math
+from datetime import datetime
 from pathlib import Path
 
-import tensorflow as tf
-from tqdm import tqdm
+from tensorflow.keras.callbacks import ModelCheckpoint
 from generate_datasets import load_dataset
 
 from models import create_model
@@ -35,6 +34,13 @@ if __name__ == "__main__":
     test_ds = load_dataset(dataset_dir / "test.tfrecords", p)
     val_ds = load_dataset(dataset_dir / "val.tfrecords", p)
 
+    # define callbacks used during training
+    callbacks = []
+
+    filepath = Path("checkpoints") / datetime.now().strftime("%Y-%m-%d_%H-%M") / "epoch-{epoch:02d}_vl-{val_loss:.5f}.h5"
+    filepath.parent.mkdir(exist_ok=True, parents=True)
+    callbacks.append(ModelCheckpoint(filepath=filepath, save_best_only=True, verbose=True))
+
     # compile model and start training
     model.fit(
         train_ds,
@@ -42,4 +48,5 @@ if __name__ == "__main__":
         epochs=p.num_epochs,
         validation_data=val_ds,
         verbose=1,
+        callbacks=callbacks,
     )

@@ -94,7 +94,7 @@ def prepare_data(
 
     # combine dataframes into a single file
     combined_df = pd.concat([input_df, output_df.add_prefix("out_")], axis=1)
-    combined_norm = pd.concat([input_df_norm, output_df_norm])
+    combined_norm = pd.concat([input_df_norm, output_df_norm], axis=1)
 
     prefix_snake = f"{prefix}{' ' if prefix else ''}"
     combined_df.to_csv(

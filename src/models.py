@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Layer, Dense, Input, ELU
+from tensorflow.keras.layers import Layer, Dense, Input, ELU, Dropout
 
 from training_parameters import TrainingParameters
 
@@ -78,6 +78,7 @@ class NeMoCoModel(tf.keras.Model):
         x = gating_input
         for units in p.gating_layer_shapes:
             x = Dense(units, activation='elu')(x)
+            x = Dropout(p.dropout_prob)(x)
         gating_out = Dense(p.num_experts, activation='softmax')(x)
 
         # Expert Network
@@ -85,6 +86,7 @@ class NeMoCoModel(tf.keras.Model):
         for units in p.expert_layer_shapes:
             x = DenseExpert(units, p.num_experts)([x, gating_out])
             x = ELU()(x)
+            x = Dropout(p.dropout_prob)(x)
         y = DenseExpert(len(p.output_cols), p.num_experts)([x, gating_out])
 
         super().__init__(

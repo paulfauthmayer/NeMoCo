@@ -115,16 +115,17 @@ def create_model(p: TrainingParameters) -> Model:
     expert_input = Input(shape=(len(p.expert_input_cols,)), name="expert_input")
 
     # Gating Network
-    x = Dense(p.gating_layer_shapes[0], activation='elu')(gating_input)
-    x = Dense(p.gating_layer_shapes[1], activation='elu')(x)
-    gating_perc = Dense(p.num_experts, activation='softmax')(x)
+    x = gating_input
+    for units in p.gating_layer_shapes:
+        x = Dense(units, activation='elu')(x)
+    gating_out = Dense(p.num_experts, activation='softmax')(x)
 
     # Expert Network
-    x = DenseExpert(p.expert_layer_shapes[0], p.num_experts,)([expert_input, gating_perc])
-    x = ELU()(x)
-    x = DenseExpert(p.expert_layer_shapes[1], p.num_experts)([x, gating_perc])
-    x = ELU()(x)
-    y = DenseExpert(len(p.output_cols), p.num_experts)([x, gating_perc])
+    x = expert_input
+    for units in p.expert_layer_shapes:
+        x = DenseExpert(units, p.num_experts)([x, gating_out])
+        x = ELU()(x)
+    y = DenseExpert(len(p.output_cols), p.num_experts)([x, gating_out])
 
     model = NeMoCoModel(
         inputs=[gating_input, expert_input],

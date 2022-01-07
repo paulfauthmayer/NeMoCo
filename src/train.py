@@ -22,7 +22,15 @@ if __name__ == "__main__":
     p = TrainingParameters(args.dataset_path, args.dataset_norm_path)
 
     # instantiate model
-    model = NeMoCoModel(p)
+    model = NeMoCoModel(
+        p.gating_layer_shapes,
+        len(p.gating_input_cols),
+        p.expert_layer_shapes,
+        len(p.expert_input_cols),
+        p.num_experts,
+        len(p.output_cols),
+        p.dropout_prob
+    )
     model.summary()
     optimizer = p.optimizer(**p.optimizer_settings)
     model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])
@@ -36,8 +44,9 @@ if __name__ == "__main__":
 
     # define callbacks used during training
     callbacks = []
+    train_dir = Path("checkpoints") / datetime.now().strftime("%Y-%m-%d_%H-%M")
 
-    filepath = Path("checkpoints") / datetime.now().strftime("%Y-%m-%d_%H-%M") / "epoch-{epoch:02d}_vl-{val_loss:.5f}.h5"
+    filepath = train_dir / "epoch-{epoch:02d}_vl-{val_loss:.5f}.h5"
     filepath.parent.mkdir(exist_ok=True, parents=True)
     callbacks.append(ModelCheckpoint(filepath=filepath, save_best_only=True, verbose=True))
 

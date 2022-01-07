@@ -1,11 +1,8 @@
 import tensorflow as tf
-from tensorflow.keras import Model
-from tensorflow.keras.layers import Layer, Dense, Input, ELU, Dropout
+from tensorflow.keras.layers import Dense, Input, ELU, Dropout
+from typing import List
 
-from training_parameters import TrainingParameters
-
-
-class DenseExpert(Layer):
+class DenseExpert(tf.keras.layers.Layer):
     def __init__(
         #TODO: define activation function for layer
         self,
@@ -69,30 +66,74 @@ class DenseExpert(Layer):
 
 class NeMoCoModel(tf.keras.Model):
 
-    def __init__(self, p: TrainingParameters) -> None:
+    def __init__(
+        self,
+        gating_layer_units: List[int],
+        gating_input_features: int,
+        expert_layer_units: List[int],
+        expert_input_features: int,
+        num_experts: int,
+        output_features: int,
+        dropout_prob: float
+    ) -> None:
 
-        gating_input = Input(shape=(len(p.gating_input_cols,)), name="gating_input")
-        expert_input = Input(shape=(len(p.expert_input_cols,)), name="expert_input")
+        self.build_instructions = {
+            "gating_layer_units": gating_layer_units,
+            "gating_input_features": gating_input_features,
+            "expert_layer_units": expert_layer_units,
+            "expert_input_features": expert_input_features,
+            "num_experts": num_experts,
+            "output_features": output_features,
+            "dropout_prob": dropout_prob,
+        }
+
+        print(self.build_instructions)
+        inputs, outputs = self.create_nemoco_graph(**self.build_instructions)
+
+        super().__init__(
+            inputs=inputs,
+            outputs=outputs
+        )
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"build_instructions": self.build_instructions})
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config["build_instructions"])
+
+    @classmethod
+    def create_nemoco_graph(
+        cls,
+        gating_layer_units: List[int],
+        gating_input_features: int,
+        expert_layer_units: List[int],
+        expert_input_features: int,
+        num_experts: int,
+        output_features: int,
+        dropout_prob: float
+    ):
+        gating_input = Input(shape=(gating_input_features,), name="gating_input")
+        expert_input = Input(shape=(expert_input_features,), name="expert_input")
 
         # Gating Network
         x = gating_input
-        for units in p.gating_layer_shapes:
+        for units in gating_layer_units:
             x = Dense(units, activation='elu')(x)
-            x = Dropout(p.dropout_prob)(x)
-        gating_out = Dense(p.num_experts, activation='softmax')(x)
+            x = Dropout(dropout_prob)(x)
+        gating_out = Dense(num_experts, activation='softmax')(x)
 
         # Expert Network
         x = expert_input
-        for units in p.expert_layer_shapes:
-            x = DenseExpert(units, p.num_experts)([x, gating_out])
+        for units in expert_layer_units:
+            x = DenseExpert(units, num_experts)([x, gating_out])
             x = ELU()(x)
-            x = Dropout(p.dropout_prob)(x)
-        y = DenseExpert(len(p.output_cols), p.num_experts)([x, gating_out])
+            x = Dropout(dropout_prob)(x)
+        y = DenseExpert(output_features, num_experts)([x, gating_out])
 
-        super().__init__(
-            inputs=[gating_input, expert_input],
-            outputs=[y]
-        )
+        return [gating_input, expert_input], [y]
 
     def train_step(self, data):
         # unpack the data
@@ -124,11 +165,13 @@ class NeMoCoModel(tf.keras.Model):
         x_gating = tf.sparse.to_dense(data["gating_input"])
         y = tf.sparse.to_dense(data["output"])
 
-        # Compute predictions
+        # compute predictions
         y_pred = self([x_gating, x_expert], training=False)
-        # Updates the metrics tracking the loss
+
+        # updates the metrics tracking the loss
         self.compiled_loss(y, y_pred, regularization_losses=self.losses)
-        # Update the metrics.
+
+        # update the metrics
         self.compiled_metrics.update_state(y, y_pred)
 
         return {m.name: m.result() for m in self.metrics}

@@ -45,13 +45,11 @@ class DenseExpert(Layer):
             name="biases",
             trainable=True,
         )
-        # print(f"Experts build {self.name}: {input_shape=} {self.alpha.shape=} {self.beta.shape=}")
 
     def call(self, inputs):
         x, gate_perc = inputs
         w = self.get_expert_weights(gate_perc)
         b = self.get_expert_biases(gate_perc)
-        # print(f"Expert call {self.name}: {x.shape=} {gate_perc.shape=} {w.shape=} {b.shape=} ")
         result = (w @ x[..., None])[..., 0]
         result = result + b
         return result
@@ -68,7 +66,32 @@ class DenseExpert(Layer):
         r = gate_perc * b
         return tf.reduce_sum(r, axis=1)
 
+
 class NeMoCoModel(tf.keras.Model):
+
+    def __init__(self, p: TrainingParameters) -> None:
+
+        gating_input = Input(shape=(len(p.gating_input_cols,)), name="gating_input")
+        expert_input = Input(shape=(len(p.expert_input_cols,)), name="expert_input")
+
+        # Gating Network
+        x = gating_input
+        for units in p.gating_layer_shapes:
+            x = Dense(units, activation='elu')(x)
+        gating_out = Dense(p.num_experts, activation='softmax')(x)
+
+        # Expert Network
+        x = expert_input
+        for units in p.expert_layer_shapes:
+            x = DenseExpert(units, p.num_experts)([x, gating_out])
+            x = ELU()(x)
+        y = DenseExpert(len(p.output_cols), p.num_experts)([x, gating_out])
+
+        super().__init__(
+            inputs=[gating_input, expert_input],
+            outputs=[y]
+        )
+
     def train_step(self, data):
         # unpack the data
         x_expert = tf.sparse.to_dense(data["expert_input"])
@@ -107,29 +130,3 @@ class NeMoCoModel(tf.keras.Model):
         self.compiled_metrics.update_state(y, y_pred)
 
         return {m.name: m.result() for m in self.metrics}
-
-
-def create_model(p: TrainingParameters) -> Model:
-
-    gating_input = Input(shape=(len(p.gating_input_cols,)), name="gating_input")
-    expert_input = Input(shape=(len(p.expert_input_cols,)), name="expert_input")
-
-    # Gating Network
-    x = gating_input
-    for units in p.gating_layer_shapes:
-        x = Dense(units, activation='elu')(x)
-    gating_out = Dense(p.num_experts, activation='softmax')(x)
-
-    # Expert Network
-    x = expert_input
-    for units in p.expert_layer_shapes:
-        x = DenseExpert(units, p.num_experts)([x, gating_out])
-        x = ELU()(x)
-    y = DenseExpert(len(p.output_cols), p.num_experts)([x, gating_out])
-
-    model = NeMoCoModel(
-        inputs=[gating_input, expert_input],
-        outputs=[y]
-    )
-
-    return model

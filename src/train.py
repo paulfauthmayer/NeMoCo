@@ -5,7 +5,7 @@ from pathlib import Path
 from tensorflow.keras.callbacks import ModelCheckpoint
 from generate_datasets import load_dataset
 
-from models import create_model
+from models import NeMoCoModel
 from training_parameters import TrainingParameters
 
 
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     p = TrainingParameters(args.dataset_path, args.dataset_norm_path)
 
     # instantiate model
-    model = create_model(p)
+    model = NeMoCoModel(p)
     model.summary()
     optimizer = p.optimizer(**p.optimizer_settings)
     model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])

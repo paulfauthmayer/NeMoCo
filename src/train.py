@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
+from tensorflow_addons import optimizers
 from generate_datasets import load_dataset
 
 from models import NeMoCoModel

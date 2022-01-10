@@ -5,10 +5,12 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import tensorflow as tf
+import tensorflow_addons as tfa
 from typing import Any, List
 import yaml
 
 optimizers = {
+    # Default Tensorflow Optimizers
     "Adadelta": tf.keras.optimizers.Adam,
     "Adagrad": tf.keras.optimizers.Adagrad,
     "Adam": tf.keras.optimizers.Adam,
@@ -16,6 +18,9 @@ optimizers = {
     "Nadam": tf.keras.optimizers.Nadam,
     "RMSprop": tf.keras.optimizers.RMSprop,
     "SGD": tf.keras.optimizers.SGD,
+    # Tensorflow Addons Optimizers
+    "AdamW": tfa.optimizers.AdamW,
+    # Others
 }
 optimizers_inv = {v: k for k, v in optimizers.items()}
 

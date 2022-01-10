@@ -30,6 +30,7 @@ RUN pip install \
     pydot \
     scikit-learn \
     seaborn \
+    tensorflow_addons \
     tqdm
 
 # setup jupyterlab

@@ -2,11 +2,11 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 from generate_datasets import load_dataset
 
 from models import NeMoCoModel
-from training_parameters import TrainingParameters
+from training_parameters import DatasetConfig, TrainingParameters
 
 
 if __name__ == "__main__":
@@ -14,21 +14,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("dataset_path", type=Path)
-    parser.add_argument("dataset_norm_path", type=Path)
-    parser.add_argument("--num-experts", type=int, default=8)
+    parser.add_argument("dataset_directory", type=Path)
     args = parser.parse_args()
 
-    p = TrainingParameters(args.dataset_path, args.dataset_norm_path)
+    c = DatasetConfig().from_yaml(args.dataset_directory / "dataset_config.yaml")
+    p = TrainingParameters(dataset_config=c)
 
     # instantiate model
     model = NeMoCoModel(
-        p.gating_layer_shapes,
-        len(p.gating_input_cols),
-        p.expert_layer_shapes,
-        len(p.expert_input_cols),
+        p.gating_input_features,
+        p.gating_layer_units,
+        p.expert_input_features,
+        p.expert_layer_units,
         p.num_experts,
-        len(p.output_cols),
+        p.expert_output_features,
         p.dropout_prob
     )
     model.summary()
@@ -38,17 +37,23 @@ if __name__ == "__main__":
     # pick dataset and prepare subsets for training
     # TODO: automatically select the correct dataset - if not found, generate!
     dataset_dir = Path("/code/src/datasets/trainable_datasets/2022-01-03_17-38_INITIAL")
-    train_ds = load_dataset(dataset_dir / "train.tfrecords", p, is_train=True)
-    test_ds = load_dataset(dataset_dir / "test.tfrecords", p)
-    val_ds = load_dataset(dataset_dir / "val.tfrecords", p)
+    train_ds = load_dataset(dataset_dir / "train.tfrecords", p.batch_size, is_train=True)
+    test_ds = load_dataset(dataset_dir / "test.tfrecords", p.batch_size)
+    val_ds = load_dataset(dataset_dir / "val.tfrecords", p.batch_size)
 
     # define callbacks used during training
     callbacks = []
     train_dir = Path("checkpoints") / datetime.now().strftime("%Y-%m-%d_%H-%M")
+    train_dir.mkdir(parents=True, exist_ok=True)
 
-    filepath = train_dir / "epoch-{epoch:02d}_vl-{val_loss:.5f}.h5"
+    filepath = train_dir / "ep-{epoch:02d}_vl-{val_loss:.5f}.h5"
     filepath.parent.mkdir(exist_ok=True, parents=True)
     callbacks.append(ModelCheckpoint(filepath=filepath, save_best_only=True, verbose=True))
+
+    log_dir = train_dir / "logs"
+    callbacks.append(TensorBoard(log_dir=log_dir))
+
+    p.to_yaml(train_dir / "train_config.yaml")
 
     # compile model and start training
     model.fit(

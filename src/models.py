@@ -68,12 +68,12 @@ class NeMoCoModel(tf.keras.Model):
 
     def __init__(
         self,
-        gating_layer_units: List[int],
         gating_input_features: int,
-        expert_layer_units: List[int],
+        gating_layer_units: List[int],
         expert_input_features: int,
+        expert_layer_units: List[int],
         num_experts: int,
-        output_features: int,
+        expert_output_features: int,
         dropout_prob: float
     ) -> None:
 
@@ -83,13 +83,11 @@ class NeMoCoModel(tf.keras.Model):
             "expert_layer_units": expert_layer_units,
             "expert_input_features": expert_input_features,
             "num_experts": num_experts,
-            "output_features": output_features,
+            "expert_output_features": expert_output_features,
             "dropout_prob": dropout_prob,
         }
 
-        print(self.build_instructions)
         inputs, outputs = self.create_nemoco_graph(**self.build_instructions)
-
         super().__init__(
             inputs=inputs,
             outputs=outputs
@@ -112,7 +110,7 @@ class NeMoCoModel(tf.keras.Model):
         expert_layer_units: List[int],
         expert_input_features: int,
         num_experts: int,
-        output_features: int,
+        expert_output_features: int,
         dropout_prob: float
     ):
         gating_input = Input(shape=(gating_input_features,), name="gating_input")
@@ -131,7 +129,7 @@ class NeMoCoModel(tf.keras.Model):
             x = DenseExpert(units, num_experts)([x, gating_out])
             x = ELU()(x)
             x = Dropout(dropout_prob)(x)
-        y = DenseExpert(output_features, num_experts)([x, gating_out])
+        y = DenseExpert(expert_output_features, num_experts)([x, gating_out])
 
         return [gating_input, expert_input], [y]
 

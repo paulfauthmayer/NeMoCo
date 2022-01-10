@@ -6,7 +6,7 @@ import pandas as pd
 from datetime import datetime
 from tqdm import tqdm
 
-from training_parameters import TrainingParameters
+from training_parameters import DatasetConfig, TrainingParameters
 from collections import defaultdict
 
 FEATURE_DESCRIPTION = {
@@ -17,12 +17,12 @@ FEATURE_DESCRIPTION = {
 
 
 def load_dataset(
-    tfrecords_path: Path, p: TrainingParameters, is_train: bool = False
+    tfrecords_path: Path, batch_size: int, is_train: bool = False
 ) -> tf.data.Dataset:
     raw_ds = tf.data.TFRecordDataset(str(tfrecords_path))
     # TODO: parse_example vs parse_single_example ??
     ds = raw_ds.map(lambda x: tf.io.parse_single_example(x, FEATURE_DESCRIPTION))
-    ds = ds.batch(p.batch_size)
+    ds = ds.batch(batch_size)
     if is_train:
         ds = ds.shuffle(buffer_size=int(1e5), reshuffle_each_iteration=True)
     return ds
@@ -33,7 +33,7 @@ def _float_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
 
 
-def nemoco_example(sample: np.array) -> tf.train.Example:
+def nemoco_example(sample: np.array, norm_data: np.array, c: DatasetConfig) -> tf.train.Example:
 
     sample_data = np.array(sample)
     # TODO: check for exploding values
@@ -41,9 +41,9 @@ def nemoco_example(sample: np.array) -> tf.train.Example:
     # for all-zero columns
     sample_data = (sample_data - norm_data[0]) / (norm_data[1] + 1e-7)
 
-    gating_input = np.array(sample_data[p.gating_input_idx], dtype=np.float32)
-    expert_input = np.array(sample_data[p.expert_input_idx], dtype=np.float32)
-    output = np.array(sample_data[p.output_idx], dtype=np.float32)
+    gating_input = np.array(sample_data[c.gating_input_idx], dtype=np.float32)
+    expert_input = np.array(sample_data[c.expert_input_idx], dtype=np.float32)
+    output = np.array(sample_data[c.output_idx], dtype=np.float32)
 
     feature = {
         "gating_input": _float_feature(gating_input),
@@ -58,30 +58,24 @@ def generate_dataset(
     data_path: Path,
     norm_data_path: Path,
     output_directory: Path,
-    training_parameters: TrainingParameters = None,
     name: str = "",
 ):
 
-    global norm_data
-    global p
-
-    p = (
-        training_parameters
-        if training_parameters is not None
-        else TrainingParameters(data_path, norm_data_path)
-    )
-    norm_data = pd.read_csv(p.dataset_norm_path).to_numpy()
+    c = DatasetConfig(data_path, norm_data_path)
+    norm_data = pd.read_csv(c.dataset_norm_csv_path).to_numpy()
 
     dataset_name = datetime.now().strftime("%Y-%m-%d_%H-%M") + (
         f"_{name}".upper() if name else ""
     )
-    dataset_dir = output_directory / dataset_name
-    dataset_dir.mkdir(exist_ok=True, parents=True)
-    record_file_train = dataset_dir / "train.tfrecords"
-    record_file_test = dataset_dir / "test.tfrecords"
-    record_file_val = dataset_dir / "val.tfrecords"
+    dataset_directory = output_directory / dataset_name
+    c.dataset_directory = dataset_directory
+    c.name = dataset_name
+    dataset_directory.mkdir(exist_ok=True, parents=True)
+    record_file_train = dataset_directory / "train.tfrecords"
+    record_file_test = dataset_directory / "test.tfrecords"
+    record_file_val = dataset_directory / "val.tfrecords"
 
-    with open(p.dataset_path, "r") as f, tf.io.TFRecordWriter(
+    with open(c.dataset_csv_path, "r") as f, tf.io.TFRecordWriter(
         str(record_file_train)
     ) as train_writer, tf.io.TFRecordWriter(
         str(record_file_test)
@@ -92,32 +86,33 @@ def generate_dataset(
         _ = f.readline()
 
         counter = defaultdict(int)
-        rng = np.random.default_rng(p.seed)
+        rng = np.random.default_rng(c.seed)
 
-        for sample in tqdm(f.readlines(), total=p.num_samples):
+        for sample in tqdm(f.readlines(), total=c.num_samples):
             sample = sample.split(",")
             sample = np.array([np.float32(x) for x in sample])
-            example = nemoco_example(sample)
+            example = nemoco_example(sample, norm_data, c)
             example = example.SerializeToString()
 
             x = rng.random()
-            if x <= p.train_val_test_ratios[0]:
+            if x <= c.split_ratios["train"]:
                 counter["train"] += 1
                 train_writer.write(example)
-            elif x <= sum(p.train_val_test_ratios[:2]):
+            elif x <= c.split_ratios["train"] + c.split_ratios["val"]:
                 counter["val"] += 1
                 val_writer.write(example)
             else:
                 counter["test"] += 1
                 test_writer.write(example)
 
+        c.num_samples_per_split = dict(counter)
         print("Splits: ", end="")
         for key, value in counter.items():
-            print(f"[{key} : {value} ({value/p.num_samples:.1%})] ", end="")
+            print(f"[{key} : {value} ({value/c.num_samples:.1%})] ", end="")
         print()
 
-    summary_file = dataset_dir / "training_paramters.yml"
-    p.summarize(summary_file)
+    summary_file = dataset_directory / "dataset_config.yaml"
+    c.to_yaml(summary_file)
 
 
 if __name__ == "__main__":
@@ -126,7 +121,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("data_path", type=Path)
     parser.add_argument("norm_data_path", type=Path)
-    parser.add_argument("--output-directory", type=Path, default=Path())
+    parser.add_argument("--output-directory", type=Path, default=Path("datasets/trainable_datasets"))
     parser.add_argument("--name", type=str)
     args = parser.parse_args()
 

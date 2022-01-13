@@ -44,24 +44,35 @@ class DenseExpert(tf.keras.layers.Layer):
         )
 
     def call(self, inputs):
-        x, gate_perc = inputs
-        w = self.get_expert_weights(gate_perc)
-        b = self.get_expert_biases(gate_perc)
-        result = (w @ x[..., None])[..., 0]
-        result = result + b
-        return result
+        x, g = inputs                   # x: {batch_size, input}, g: {batch_size, num_experts}
+
+        x = x[..., None]                # x: {batch_size, input, 1}
+        w = self.get_expert_weights(g)  # w: {batch_size, ouput, input}
+        b = self.get_expert_biases(g)   # b: {batch_size, output}
+
+        r = w @ x                       # r: {batch_size, output, 1}
+        r = r[..., 0]                   # r: {batch_size, output}
+        r = r + b
+
+        return r
 
     def get_expert_weights(self, gate_perc):
-        a = tf.expand_dims(self.alpha, 0)   # 1 * n_exp * neurons_in * neurons_out
-        gate_perc = tf.expand_dims(tf.expand_dims(gate_perc, -1), -1) # bs * n_exp * 1 * 1
-        r = gate_perc * a
-        return tf.reduce_sum(r, axis=1)
+        a = self.alpha[None, ...]       # a: {1, num_experts, output, input}
+        g = gate_perc[..., None, None]  # g: {batch_size, num_experts, 1, 1}
+
+        r = g * a                       # r: {batch_size, num_experts, output, input}
+        r = tf.reduce_sum(r, axis=1)    # r: {batch_size, output, input}
+
+        return r
 
     def get_expert_biases(self, gate_perc):
-        b = tf.expand_dims(self.beta, 0)            # 1 * n_exp * neurons
-        gate_perc = tf.expand_dims(gate_perc, -1) # bs * n_exp * 1 * 1
-        r = gate_perc * b
-        return tf.reduce_sum(r, axis=1)
+        b = self.beta[None, ...]        # b: {1, num_experts, output}
+        g = gate_perc[..., None]        # g: {batch_size, num_experts, 1}
+
+        r = g * b                       # r: {batch_size, num_experts, output}
+        r = tf.reduce_sum(r, axis=1)    # r: {batch_size, output}
+
+        return r
 
 
 class NeMoCoModel(tf.keras.Model):

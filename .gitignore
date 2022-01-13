@@ -1,5 +1,6 @@
 src/datasets/*
-src/PetImages
+src/checkpoints
+external/*
 
 ### Python Gitignore from https://github.com/github/gitignore/blob/master/Python.gitignore
 

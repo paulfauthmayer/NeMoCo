@@ -31,6 +31,7 @@ RUN pip install \
     scikit-learn \
     seaborn \
     tensorflow_addons \
+    tf2onnx \
     tqdm
 
 # setup jupyterlab

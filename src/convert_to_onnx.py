@@ -25,13 +25,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "checkpoint",
         type=Path,
-        help="The path to the checkpoint you want to convert"
+        help="The path to the checkpoint you want to convert."
     )
     parser.add_argument(
-        "output_path",
+        "--output-path",
         type=Path,
-        help="The path where you want the ONNX model to be stored",
+        help="The path where you want the ONNX model to be stored.",
+        default=None,
     )
     args = parser.parse_args()
 
-    convert_checkpoint_to_onnx(args.checkpoint_path, args.output_path)
+    output_path = args.output_path
+    if output_path is None:
+        output_path = args.checkpoint.with_suffix(".onnx")
+
+    convert_checkpoint_to_onnx(args.checkpoint, output_path)

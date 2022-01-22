@@ -1,6 +1,8 @@
 import argparse
 from pathlib import Path
+from typing import Iterable
 
+import numpy as np
 from onnxruntime import InferenceSession
 import tensorflow as tf
 from tensorflow.keras.models import Model
@@ -11,6 +13,15 @@ from models import NeMoCoModel, DenseExpert
 
 def test_onnx(onnx_path: Path, model: Model):
     onnx_session = InferenceSession(str(onnx_path))
+
+def none_to_num(array: np.array, num: int) -> Iterable:
+    array = np.asarray(array)
+    for i, e in enumerate(array):
+        if isinstance(e, Iterable):
+            array[i] = none_to_num(e, num)
+        else:
+            array[i] = e if e is not None else num
+    return array
 
 
 def convert_model_to_onnx(model: Model, output_path: Path):

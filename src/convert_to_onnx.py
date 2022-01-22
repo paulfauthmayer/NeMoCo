@@ -1,11 +1,16 @@
 import argparse
 from pathlib import Path
 
+from onnxruntime import InferenceSession
 import tensorflow as tf
 from tensorflow.keras.models import Model
 import tf2onnx
 
 from models import NeMoCoModel, DenseExpert
+
+
+def test_onnx(onnx_path: Path, model: Model):
+    onnx_session = InferenceSession(str(onnx_path))
 
 
 def convert_model_to_onnx(model: Model, output_path: Path):
@@ -20,6 +25,7 @@ def convert_checkpoint_to_onnx(checkpoint_path: Path, output_path: Path):
     custom_objects = {"NeMoCoModel": NeMoCoModel, "DenseExpert": DenseExpert}
     model = tf.keras.models.load_model(checkpoint_path, custom_objects=custom_objects)
     convert_model_to_onnx(model, output_path)
+    test_onnx(output_path, model)
 
 
 if __name__ == "__main__":

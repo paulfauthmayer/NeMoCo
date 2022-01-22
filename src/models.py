@@ -1,6 +1,8 @@
+from pathlib import Path
+from typing import List
+
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Input, ELU, Dropout
-from typing import List
 
 class DenseExpert(tf.keras.layers.Layer):
     def __init__(
@@ -44,33 +46,33 @@ class DenseExpert(tf.keras.layers.Layer):
         )
 
     def call(self, inputs):
-        x, g = inputs                   # x: {batch_size, input}, g: {batch_size, num_experts}
+        x, g = inputs                                           # x: {batch_size, input}, g: {batch_size, num_experts}
 
-        x = x[..., None]                # x: {batch_size, input, 1}
-        w = self.get_expert_weights(g)  # w: {batch_size, ouput, input}
-        b = self.get_expert_biases(g)   # b: {batch_size, output}
+        x = tf.expand_dims(x, -1)                               # x: {batch_size, input, 1}
+        w = self.get_expert_weights(g)                          # w: {batch_size, ouput, input}
+        b = self.get_expert_biases(g)                           # b: {batch_size, output}
 
-        r = w @ x                       # r: {batch_size, output, 1}
-        r = r[..., 0]                   # r: {batch_size, output}
+        r = w @ x                                               # r: {batch_size, output, 1}
+        r = tf.squeeze(r, -1)                                   # r: {batch_size, output}
         r = r + b
 
         return r
 
     def get_expert_weights(self, gate_perc):
-        a = self.alpha[None, ...]       # a: {1, num_experts, output, input}
-        g = gate_perc[..., None, None]  # g: {batch_size, num_experts, 1, 1}
+        a = tf.expand_dims(self.alpha, 0)                       # a: {1, num_experts, output, input}
+        g = tf.expand_dims(tf.expand_dims(gate_perc, -1), -1)   # g: {batch_size, num_experts, 1, 1}
 
-        r = g * a                       # r: {batch_size, num_experts, output, input}
-        r = tf.reduce_sum(r, axis=1)    # r: {batch_size, output, input}
+        r = g * a                                               # r: {batch_size, num_experts, output, input}
+        r = tf.reduce_sum(r, axis=1)                            # r: {batch_size, output, input}
 
         return r
 
     def get_expert_biases(self, gate_perc):
-        b = self.beta[None, ...]        # b: {1, num_experts, output}
-        g = gate_perc[..., None]        # g: {batch_size, num_experts, 1}
+        b = tf.expand_dims(self.beta, 0)                        # b: {1, num_experts, output}
+        g = tf.expand_dims(gate_perc, -1)                       # g: {batch_size, num_experts, 1}
 
-        r = g * b                       # r: {batch_size, num_experts, output}
-        r = tf.reduce_sum(r, axis=1)    # r: {batch_size, output}
+        r = g * b                                               # r: {batch_size, num_experts, output}
+        r = tf.reduce_sum(r, axis=1)                            # r: {batch_size, output}
 
         return r
 

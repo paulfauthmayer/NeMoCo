@@ -134,7 +134,7 @@ class NeMoCoModel(tf.keras.Model):
         for units in gating_layer_units:
             x = Dense(units, activation='elu')(x)
             x = Dropout(dropout_prob)(x)
-        gating_out = Dense(num_experts, activation='softmax')(x)
+        gating_out = Dense(num_experts, activation='softmax', name="gating_output")(x)
 
         # Expert Network
         x = expert_input
@@ -142,7 +142,7 @@ class NeMoCoModel(tf.keras.Model):
             x = DenseExpert(units, num_experts)([x, gating_out])
             x = ELU()(x)
             x = Dropout(dropout_prob)(x)
-        y = DenseExpert(expert_output_features, num_experts)([x, gating_out])
+        y = DenseExpert(expert_output_features, num_experts, name="final_output")([x, gating_out])
 
         return [gating_input, expert_input], [y]
 

@@ -1,13 +1,15 @@
 import argparse
+from collections import defaultdict
 from pathlib import Path
+from datetime import datetime
+
 import tensorflow as tf
 import numpy as np
 import pandas as pd
-from datetime import datetime
 from tqdm import tqdm
 
-from training_parameters import DatasetConfig, TrainingParameters
-from collections import defaultdict
+from globals import SEED
+from training_parameters import DatasetConfig
 
 FEATURE_DESCRIPTION = {
     "gating_input": tf.io.VarLenFeature(np.float32),
@@ -62,7 +64,8 @@ def generate_dataset(
 ):
 
     c = DatasetConfig(data_path, norm_data_path)
-    norm_data = pd.read_csv(c.dataset_norm_csv_path).to_numpy()
+    norm_data_ds = pd.read_csv(c.dataset_norm_csv_path)
+    norm_data = norm_data_ds.to_numpy()
 
     dataset_name = datetime.now().strftime("%Y-%m-%d_%H-%M") + (
         f"_{name}".upper() if name else ""
@@ -86,7 +89,7 @@ def generate_dataset(
         _ = f.readline()
 
         counter = defaultdict(int)
-        rng = np.random.default_rng(c.seed)
+        rng = np.random.default_rng(SEED)
 
         for sample in tqdm(f.readlines(), total=c.num_samples):
             sample = sample.split(",")
@@ -111,6 +114,12 @@ def generate_dataset(
             print(f"[{key} : {value} ({value/c.num_samples:.1%})] ", end="")
         print()
 
+    # save norm data in the same split
+    norm_data_ds.iloc[:, c.expert_input_idx].to_csv(dataset_directory / "norm_expert.txt", index=False, header=False)
+    norm_data_ds.iloc[:, c.gating_input_idx].to_csv(dataset_directory / "norm_gating.txt", index=False, header=False)
+    norm_data_ds.iloc[:, c.output_idx].to_csv(dataset_directory / "norm_output.txt", index=False, header=False)
+
+    # save dataset configuration
     summary_file = dataset_directory / "dataset_config.yaml"
     c.to_yaml(summary_file)
 

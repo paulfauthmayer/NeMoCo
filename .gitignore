@@ -1,6 +1,13 @@
+.vscode
+.docker_bash_history
+
+src/dump/*
+src/playground.ipynb
+external/*
+
 src/datasets/*
 src/checkpoints
-external/*
+**/*.onnx
 
 ### Python Gitignore from https://github.com/github/gitignore/blob/master/Python.gitignore
 

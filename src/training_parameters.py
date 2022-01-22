@@ -86,7 +86,6 @@ class DatasetConfig(BaseConfig):
         self.num_samples = None
         self.split_ratios = split_ratios
         self.num_samples_per_split = None
-        self.seed = 42
 
         self.gating_input_cols = None
         self.expert_input_cols = None
@@ -176,7 +175,6 @@ class TrainingParameters(BaseConfig):
         self.dropout_prob = dropout_prob
         self.optimizer = optimizers[optimizer]
         self.optimizer_settings = optimizer_settings
-        self.seed = 42
 
         # relevant for testing
         self.dataset_directory: Path = None

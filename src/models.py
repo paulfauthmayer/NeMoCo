@@ -186,3 +186,8 @@ class NeMoCoModel(tf.keras.Model):
         self.compiled_metrics.update_state(y, y_pred)
 
         return {m.name: m.result() for m in self.metrics}
+
+def load_model(checkpoint_path: Path) -> tf.keras.Model:
+    custom_objects = {"NeMoCoModel": NeMoCoModel, "DenseExpert": DenseExpert}
+    model = tf.keras.models.load_model(checkpoint_path, custom_objects=custom_objects)
+    return model

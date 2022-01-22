@@ -9,7 +9,11 @@ from models import NeMoCoModel, DenseExpert
 
 
 def convert_model_to_onnx(model: Model, output_path: Path):
-    tf2onnx.convert.from_keras(model, output_path=output_path, opset=15)
+    input_signature = (
+        tf.TensorSpec((1, model.input_shape[0][1]), tf.float32, name="gating_input"),
+        tf.TensorSpec((1, model.input_shape[1][1]), tf.float32, name="expert_input")
+    )
+    tf2onnx.convert.from_keras(model, input_signature=input_signature, output_path=output_path, opset=15)
 
 
 def convert_checkpoint_to_onnx(checkpoint_path: Path, output_path: Path):

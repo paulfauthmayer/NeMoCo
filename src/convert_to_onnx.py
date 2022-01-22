@@ -25,11 +25,28 @@ def none_to_num(array: np.array, num: int) -> Iterable:
 
 
 def convert_model_to_onnx(model: Model, output_path: Path):
+    # define fixed input shapes
     input_signature = (
         tf.TensorSpec((1, model.input_shape[0][1]), tf.float32, name="gating_input"),
         tf.TensorSpec((1, model.input_shape[1][1]), tf.float32, name="expert_input")
     )
-    tf2onnx.convert.from_keras(model, input_signature=input_signature, output_path=output_path, opset=15)
+
+    # add gating output as an additional output
+    _model = tf.keras.Model(
+        inputs=model.inputs,
+        outputs=[
+            *model.outputs,
+            *[l.output for l in model.layers if l.name == "gating_output"]
+        ]
+    )
+
+    # convert model and write to disk
+    tf2onnx.convert.from_keras(
+        model=_model,
+        input_signature=input_signature,
+        output_path=output_path,
+        opset=15
+    )
 
 
 def convert_checkpoint_to_onnx(checkpoint_path: Path, output_path: Path):

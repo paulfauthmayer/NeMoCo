@@ -129,7 +129,7 @@ class DatasetConfig(BaseConfig):
                 self.num_samples = sum(1 for _ in f) - 1  # -1 because we use csvs
 
     def is_valid(self):
-        return not any ([v is not None for k,v in self.__dict__.items()])
+        return any([v is not None for k,v in self.__dict__.items()])
 
 
 class TrainingParameters(BaseConfig):

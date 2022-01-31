@@ -68,14 +68,6 @@ def prepare_data(
         pd.read_csv(path, dtype=input_dtypes, **shared_params) for path in input_motions
     )
 
-    # check for trash data hidden in first columns
-    print(f"Checking file {input_motions} for invalid data")
-    for i, val in tqdm(enumerate(input_df["pose_root_pos_x"])):
-        try:
-            np.float64(val)
-        except:
-            print(f"Incorrect value {val} in line {i}")
-
     # drop columns we don't need
     print("Dropping unnecessary columns")
     input_df = input_df.drop("sequence_name", axis=1)
@@ -95,12 +87,14 @@ def prepare_data(
     combined_norm = pd.concat([input_df_norm, output_df_norm], axis=1)
 
     print("store dataframes")
-    prefix_snake = f"{prefix}{' ' if prefix else ''}"
+    prefix_snake = f"{prefix}{'_' if prefix else ''}"
+    data_path = output_directory / f"{prefix_snake}motion_data.csv"
+    norm_path = output_directory / f"{prefix_snake}motion_norm.csv"
     combined_df.to_csv(
-        output_directory / f"{prefix_snake}motion_data.csv", header=True, index=False
+        data_path, header=True, index=False
     )
     combined_norm.to_csv(
-        output_directory / f"{prefix_snake}motion_norm.csv", header=True, index=False
+        norm_path, header=True, index=False
     )
 
     # this is the format required by the original implementation
@@ -133,6 +127,8 @@ def prepare_data(
             output_df.to_csv(
                 output_directory / f"{prefix}Output.csv", sep=",", index=False
             )
+
+    return data_path, norm_path
 
 
 def main():

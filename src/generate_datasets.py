@@ -123,6 +123,8 @@ def generate_dataset(
     summary_file = dataset_directory / "dataset_config.yaml"
     c.to_yaml(summary_file)
 
+    return summary_file
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

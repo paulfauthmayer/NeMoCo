@@ -42,16 +42,15 @@ if __name__ == "__main__":
     val_ds = load_dataset(dataset_dir / "val.tfrecords", p.batch_size)
 
     # define callbacks used during training
-    callbacks = []
     train_dir = Path("checkpoints") / datetime.now().strftime("%Y-%m-%d_%H-%M")
     train_dir.mkdir(parents=True, exist_ok=True)
 
     filepath = train_dir / "ep-{epoch:02d}_vl-{val_loss:.5f}.h5"
     filepath.parent.mkdir(exist_ok=True, parents=True)
-    callbacks.append(ModelCheckpoint(filepath=filepath, save_best_only=True, verbose=True))
+    checkpoint_cb = ModelCheckpoint(filepath=filepath, save_best_only=True, verbose=True)
 
     log_dir = train_dir / "logs"
-    callbacks.append(TensorBoard(log_dir=log_dir))
+    tensorboard_cb = TensorBoard(log_dir=log_dir)
 
     p.to_yaml(train_dir / "train_config.yaml")
 
@@ -62,5 +61,5 @@ if __name__ == "__main__":
         epochs=p.num_epochs,
         validation_data=val_ds,
         verbose=1,
-        callbacks=callbacks,
+        callbacks=[checkpoint_cb, tensorboard_cb],
     )

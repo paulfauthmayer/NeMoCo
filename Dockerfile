@@ -25,9 +25,11 @@ RUN pip install \
     black \
     jupyterlab \
     matplotlib \
+    onnxruntime \
     pandas \
     plotly \
     pydot \
+    pyyaml \
     scikit-learn \
     seaborn \
     tensorflow_addons \

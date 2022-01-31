@@ -106,7 +106,7 @@ class DatasetConfig(BaseConfig):
 
             self.gating_input_cols = list(
                 data_head
-                .filter(regex=r"velocity_\w_([7-9]|1[0-2])$")  # matches velocity_7 - velocity_12
+                .filter(regex=r"(?<!_)root_|foot_[rl]_contact")
                 .columns
             )
             self.output_cols = list(
@@ -116,7 +116,6 @@ class DatasetConfig(BaseConfig):
             )
             self.expert_input_cols = list(
                 data_head
-                .drop(self.gating_input_cols, axis=1)
                 .drop(self.output_cols, axis=1)
                 .columns
             )

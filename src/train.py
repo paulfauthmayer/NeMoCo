@@ -36,8 +36,7 @@ if __name__ == "__main__":
     model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])
 
     # pick dataset and prepare subsets for training
-    # TODO: automatically select the correct dataset - if not found, generate!
-    dataset_dir = Path("/code/src/datasets/trainable_datasets/2022-01-03_17-38_INITIAL")
+    dataset_dir = args.dataset_directory
     train_ds = load_dataset(dataset_dir / "train.tfrecords", p.batch_size, is_train=True)
     test_ds = load_dataset(dataset_dir / "test.tfrecords", p.batch_size)
     val_ds = load_dataset(dataset_dir / "val.tfrecords", p.batch_size)

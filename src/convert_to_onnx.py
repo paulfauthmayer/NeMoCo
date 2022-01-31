@@ -13,6 +13,7 @@ from models import NeMoCoModel, DenseExpert
 
 def test_onnx(onnx_path: Path, model: Model):
     onnx_session = InferenceSession(str(onnx_path))
+    print("Test passed")
 
 def none_to_num(array: np.array, num: int) -> Iterable:
     array = np.asarray(array)

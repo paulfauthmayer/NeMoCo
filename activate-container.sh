@@ -23,5 +23,6 @@ docker run \
     -p 8889:8889 \
     --gpus all \
     --mount type=bind,source=/home/paul/repos/nemoco-tf,target=/code \
+    --mount type=bind,source=/home/paul/mi_cloud/csm/nemoco,target=/cloud \
     -v $SCRIPT_PATH/$BASH_HISTORY:/root/.bash_history \
     nemoco:latest

@@ -26,7 +26,7 @@ def load_dataset(
     ds = raw_ds.map(lambda x: tf.io.parse_single_example(x, FEATURE_DESCRIPTION))
     ds = ds.batch(batch_size)
     if is_train:
-        ds = ds.shuffle(buffer_size=int(1e5), reshuffle_each_iteration=True)
+        ds = ds.shuffle(buffer_size=int(1e7), reshuffle_each_iteration=True)
     return ds
 
 

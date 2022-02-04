@@ -48,26 +48,25 @@ class BaseConfig:
             setattr(self, attr, new_value)
         
         return self
-    
+
     def readable(self) -> dict:
         d = {k: v for k, v in self.__dict__.items() if k != "conversions"}
         d = {k: self.conversions[k].yaml(v) for k, v in d.items()}
         return d
-    
+
     def to_yaml(self, yaml_path: Path) -> None:
-        d = self.readable() 
+        d = self.readable()
         with open(yaml_path, "w") as f:
             yaml.safe_dump(d, f, sort_keys=False)
 
 
 class DatasetConfig(BaseConfig):
-
     def __init__(
         self,
         dataset_csv_path: Path = None,
         dataset_norm_csv_path: Path = None,
-        split_ratios: dict = {"train": 0.70, "val": 0.15, "test": 0.15}
-        ) -> None:
+        split_ratios: dict = {"train": 0.70, "val": 0.15, "test": 0.15},
+    ) -> None:
 
         super().__init__()
         self.conversions.update({
@@ -120,19 +119,24 @@ class DatasetConfig(BaseConfig):
                 .columns
             )
 
-            self.expert_input_idx = [data_head.columns.get_loc(col) for col in self.expert_input_cols]
-            self.gating_input_idx = [data_head.columns.get_loc(col) for col in self.gating_input_cols]
-            self.output_idx = [data_head.columns.get_loc(col) for col in self.output_cols]
+            self.expert_input_idx = [
+                data_head.columns.get_loc(col) for col in self.expert_input_cols
+            ]
+            self.gating_input_idx = [
+                data_head.columns.get_loc(col) for col in self.gating_input_cols
+            ]
+            self.output_idx = [
+                data_head.columns.get_loc(col) for col in self.output_cols
+            ]
 
             with open(dataset_csv_path, "r") as f:
                 self.num_samples = sum(1 for _ in f) - 1  # -1 because we use csvs
 
     def is_valid(self):
-        return any([v is not None for k,v in self.__dict__.items()])
+        return any([v is not None for k, v in self.__dict__.items()])
 
 
 class TrainingParameters(BaseConfig):
-
     def __init__(
         self,
         gating_input_features: int = None,
@@ -148,7 +152,7 @@ class TrainingParameters(BaseConfig):
         optimizer: str = "Adam",
         optimizer_settings: dict = {},
         dataset_config: DatasetConfig = None,
-        ) -> None:
+    ) -> None:
 
         if not(dataset_config or all([gating_input_features, expert_input_features, expert_output_features])):
             raise RuntimeError("You need to specify either the dataset or input dimensions manually")
@@ -184,7 +188,6 @@ class TrainingParameters(BaseConfig):
             self.expert_output_features = len(dataset_config.output_cols)
             self.dataset_directory = dataset_config.dataset_directory
 
-
     def __str__(self) -> str:
         attrs = copy.deepcopy(self.__dict__)
         attrs.pop("conversions", None)
@@ -202,7 +205,7 @@ class TrainingParameters(BaseConfig):
 
             if isinstance(value, Path):
                 value = value.absolute()
-            
+
             if key == "optimizer":
                 value = optimizers_inv[value]
 

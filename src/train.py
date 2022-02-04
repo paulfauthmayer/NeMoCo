@@ -6,6 +6,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 from tensorflow_addons import optimizers
 from generate_datasets import load_dataset
 
+from callbacks import OnnxCheckpointCallback
 from models import NeMoCoModel
 from training_parameters import DatasetConfig, TrainingParameters
 
@@ -42,17 +43,26 @@ if __name__ == "__main__":
     val_ds = load_dataset(dataset_dir / "val.tfrecords", p.batch_size)
 
     # define callbacks used during training
-    train_dir = Path("checkpoints") / datetime.now().strftime("%Y-%m-%d_%H-%M")
-    train_dir.mkdir(parents=True, exist_ok=True)
+    date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    file_stem = "ep-{epoch:02d}_vl-{val_loss:.5f}"
+    train_dir = Path("checkpoints") / date_str
+    cloud_dir = Path("/cloud/checkpoints") / date_str
+    train_dir.mkdir(exist_ok=True, parents=True)
+    cloud_dir.mkdir(exist_ok=True, parents=True)
 
-    filepath = train_dir / "ep-{epoch:02d}_vl-{val_loss:.5f}.h5"
-    filepath.parent.mkdir(exist_ok=True, parents=True)
-    checkpoint_cb = ModelCheckpoint(filepath=filepath, save_best_only=True, verbose=True)
+    keras_filepath = train_dir / f"{file_stem}.h5"
+    keras_checkpoint_cb = ModelCheckpoint(filepath=keras_filepath, save_best_only=True, verbose=True)
+    onnx_filepath = cloud_dir / f"{file_stem}.onnx"
+    onnx_checkpoint_cb = OnnxCheckpointCallback(filepath=onnx_filepath, save_best_only=True)
 
     log_dir = train_dir / "logs"
     tensorboard_cb = TensorBoard(log_dir=log_dir)
 
     p.to_yaml(train_dir / "train_config.yaml")
+    c.to_yaml(train_dir / "dataset_config.yaml")
+
+    p.to_yaml(cloud_dir / "train_config.yaml")
+    c.to_yaml(cloud_dir / "dataset_config.yaml")
 
     # compile model and start training
     model.fit(
@@ -61,5 +71,9 @@ if __name__ == "__main__":
         epochs=p.num_epochs,
         validation_data=val_ds,
         verbose=1,
-        callbacks=[checkpoint_cb, tensorboard_cb],
+        callbacks=[
+            keras_checkpoint_cb,
+            onnx_checkpoint_cb,
+            tensorboard_cb
+        ],
     )

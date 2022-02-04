@@ -1,6 +1,7 @@
 import argparse
 from datetime import datetime
 from pathlib import Path
+import shutil
 
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 from tensorflow_addons import optimizers
@@ -63,6 +64,11 @@ if __name__ == "__main__":
 
     p.to_yaml(cloud_dir / "train_config.yaml")
     c.to_yaml(cloud_dir / "dataset_config.yaml")
+
+    # copy norming information to cloud directory
+    norm_files = args.dataset_directory.glob("norm_*.*")
+    for filepath in norm_files:
+        shutil.copy(filepath, cloud_dir / filepath.name)
 
     # compile model and start training
     model.fit(

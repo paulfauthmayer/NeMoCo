@@ -32,16 +32,17 @@ if __name__ == "__main__":
         name=args.name.upper()
     )
 
-    if args.test_sequence_dir:
-        c = DatasetConfig().from_yaml(config_path)
-        ds = pd.read_csv(c.dataset_csv_path)
-        norm = pd.read_csv(c.dataset_norm_csv_path)
+    sequence_dir = args.test_sequence_dir if args.test_sequence_dir else config_path.parent
 
-        ds_normalized = normalize_dataframe(ds)
+    c = DatasetConfig().from_yaml(config_path)
+    ds = pd.read_csv(c.dataset_csv_path)
+    norm = pd.read_csv(c.dataset_norm_csv_path)
 
-        ds_normalized.iloc[:50, c.gating_input_idx].to_csv(args.test_sequence_dir / "test_sequence_gating.csv", index=False)
-        norm.iloc[:, c.gating_input_idx].to_csv(args.test_sequence_dir / "test_sequence_gating_norm.csv", index=False)
-        ds_normalized.iloc[:50, c.expert_input_idx].to_csv(args.test_sequence_dir / "test_sequence_expert.csv", index=False)
-        norm.iloc[:, c.expert_input_idx].to_csv(args.test_sequence_dir / "test_sequence_expert_norm.csv", index=False)
-        ds_normalized.iloc[:50, c.output_idx].to_csv(args.test_sequence_dir / "test_sequence_output.csv", index=False)
-        norm.iloc[:, c.output_idx].to_csv(args.test_sequence_dir / "test_sequence_output_norm.csv", index=False)
+    ds_normalized = normalize_dataframe(ds)
+
+    ds_normalized.iloc[:50, c.gating_input_idx].to_csv(sequence_dir / "test_sequence_gating.csv", index=False)
+    norm.iloc[:, c.gating_input_idx].to_csv(sequence_dir / "test_sequence_gating_norm.csv", index=False)
+    ds_normalized.iloc[:50, c.expert_input_idx].to_csv(sequence_dir / "test_sequence_expert.csv", index=False)
+    norm.iloc[:, c.expert_input_idx].to_csv(sequence_dir / "test_sequence_expert_norm.csv", index=False)
+    ds_normalized.iloc[:50, c.output_idx].to_csv(sequence_dir / "test_sequence_output.csv", index=False)
+    norm.iloc[:, c.output_idx].to_csv(sequence_dir / "test_sequence_output_norm.csv", index=False)

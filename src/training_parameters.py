@@ -143,7 +143,7 @@ class TrainingParameters(BaseConfig):
         num_experts: int = 8,
         learn_rate: float = 0.0001,
         num_epochs: int = 1000,
-        batch_size: int = 30,
+        batch_size: int = 256,
         dropout_prob: float = 0.5,
         optimizer: str = "Adam",
         optimizer_settings: dict = {},

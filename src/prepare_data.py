@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from globals import MODE_CROUCH, MODE_WALK, MODE_RUN, MODE_IDLE, MODE_JUMP
 
 def normalize_dataframe(
     df: pd.DataFrame, reference_df: pd.DataFrame = None
@@ -35,6 +36,23 @@ def normalize_dataframe(
 
     return df
 
+def get_mode(sequence_name: str) -> str:
+    name = sequence_name.lower()
+    if MODE_RUN in name:
+        return MODE_RUN
+    elif MODE_WALK in name:
+        return MODE_WALK
+    elif MODE_JUMP in name:
+        return MODE_JUMP
+    elif MODE_CROUCH in name:
+        return MODE_CROUCH
+    elif MODE_IDLE in name:
+        return MODE_IDLE
+    # case: avoid and sidestep
+    # all rather slow, thus we label it as walk
+    else:
+        return MODE_WALK
+
 
 def prepare_data(
     input_motions: List[Path],
@@ -54,7 +72,7 @@ def prepare_data(
     output_dtypes = np.float64
 
     # read datasets
-    output_df = pd.concat(pd.read_csv(path, **shared_params) for path in output_motions)
+    output_df = pd.concat(pd.read_csv(path, dtype=output_dtypes, **shared_params) for path in output_motions)
 
     # check for trash data hidden in first columns
     print(f"Checking file {output_motions} for invalid data")
@@ -70,11 +88,16 @@ def prepare_data(
 
     # drop columns we don't need
     print("Dropping unnecessary columns")
-    input_df = input_df.drop("sequence_name", axis=1)
     if not use_fingers:
         finger_regex = r"_(thumb)|(index)|(middle)|(ring)|(pinky)_"
         input_df = input_df.drop(input_df.filter(regex=finger_regex).columns, axis=1)
         output_df = output_df.drop(output_df.filter(regex=finger_regex).columns, axis=1)
+
+    # translate sequences to modes
+    modes = input_df["sequence_name"].apply(get_mode)
+    one_hot_modes = pd.get_dummies(modes, prefix="mode")
+    input_df = pd.concat([input_df, one_hot_modes], axis=1)
+    input_df = input_df.drop("sequence_name", axis=1)
 
     # get metrics required for normalization
     print("Calculate standardization parameters")

@@ -105,7 +105,7 @@ class DatasetConfig(BaseConfig):
 
             self.gating_input_cols = list(
                 data_head
-                .filter(regex=r"(?<!_)root_|foot_[rl]_contact")
+                .filter(regex=r"(?<!_)root_|foot_[rl]_contact|mode_|(?<!_)effector_")
                 .columns
             )
             self.output_cols = list(

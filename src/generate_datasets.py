@@ -115,9 +115,9 @@ def generate_dataset(
         print()
 
     # save norm data in the same split
-    norm_data_ds.iloc[:, c.expert_input_idx].to_csv(dataset_directory / "norm_expert.txt", index=False, header=False)
-    norm_data_ds.iloc[:, c.gating_input_idx].to_csv(dataset_directory / "norm_gating.txt", index=False, header=False)
-    norm_data_ds.iloc[:, c.output_idx].to_csv(dataset_directory / "norm_output.txt", index=False, header=False)
+    norm_data_ds.iloc[:, c.expert_input_idx].to_csv(dataset_directory / "norm_expert.csv", index=False, header=True)
+    norm_data_ds.iloc[:, c.gating_input_idx].to_csv(dataset_directory / "norm_gating.csv", index=False, header=True)
+    norm_data_ds.iloc[:, c.output_idx].to_csv(dataset_directory / "norm_output.csv", index=False, header=True)
 
     # save dataset configuration
     summary_file = dataset_directory / "dataset_config.yaml"

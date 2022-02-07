@@ -10,6 +10,7 @@ import tf2onnx
 
 from models import NeMoCoModel, DenseExpert
 
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def test_onnx(onnx_path: Path, model: Model):
     onnx_session = InferenceSession(str(onnx_path))

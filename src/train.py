@@ -79,6 +79,9 @@ if __name__ == "__main__":
     norm_files = args.dataset_directory.glob("norm_*.*")
     for filepath in norm_files:
         shutil.copy(filepath, cloud_dir / filepath.name)
+    test_sequence_files = args.dataset_directory.glob("test_sequence*.*")
+    for filepath in test_sequence_files:
+        shutil.copy(filepath, cloud_dir / filepath.name)
 
     # compile model and start training
     model.fit(

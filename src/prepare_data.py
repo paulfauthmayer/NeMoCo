@@ -82,6 +82,9 @@ def prepare_data(
         except:
             print(f"Incorrect value {val} in line {i}")
 
+    # add prefix to output data for easier selection
+    output_df = output_df.add_prefix("out_")
+
     input_df = pd.concat(
         pd.read_csv(path, dtype=input_dtypes, **shared_params) for path in input_motions
     )
@@ -105,8 +108,7 @@ def prepare_data(
     output_df_norm = output_df.agg(["mean", "std"])
 
     # combine dataframes into a single file
-    print("combine dataframes")
-    combined_df = pd.concat([input_df, output_df.add_prefix("out_")], axis=1)
+    combined_df = pd.concat([input_df, output_df], axis=1)
     combined_norm = pd.concat([input_df_norm, output_df_norm], axis=1)
 
     print("store dataframes")

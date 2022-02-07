@@ -90,7 +90,6 @@ def prepare_data(
     )
 
     # drop columns we don't need
-    print("Dropping unnecessary columns")
     if not use_fingers:
         finger_regex = r"_(thumb)|(index)|(middle)|(ring)|(pinky)_"
         input_df = input_df.drop(input_df.filter(regex=finger_regex).columns, axis=1)
@@ -103,7 +102,6 @@ def prepare_data(
     input_df = input_df.drop("sequence_name", axis=1)
 
     # get metrics required for normalization
-    print("Calculate standardization parameters")
     input_df_norm = input_df.agg(["mean", "std"])
     output_df_norm = output_df.agg(["mean", "std"])
 
@@ -111,7 +109,7 @@ def prepare_data(
     combined_df = pd.concat([input_df, output_df], axis=1)
     combined_norm = pd.concat([input_df_norm, output_df_norm], axis=1)
 
-    print("store dataframes")
+    # save dataframes to disk
     prefix_snake = f"{prefix}{'_' if prefix else ''}"
     data_path = output_directory / f"{prefix_snake}motion_data.csv"
     norm_path = output_directory / f"{prefix_snake}motion_norm.csv"

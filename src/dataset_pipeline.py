@@ -40,9 +40,14 @@ if __name__ == "__main__":
 
     ds_normalized = normalize_dataframe(ds)
 
-    ds_normalized.iloc[:50, c.gating_input_idx].to_csv(sequence_dir / "test_sequence_gating.csv", index=False)
+    ds.iloc[:50, c.gating_input_idx].to_csv(sequence_dir / "test_sequence_gating.csv", index=False)
+    ds_normalized.iloc[:50, c.gating_input_idx].to_csv(sequence_dir / "test_sequence_gating_normalized.csv", index=False)
     norm.iloc[:, c.gating_input_idx].to_csv(sequence_dir / "test_sequence_gating_norm.csv", index=False)
-    ds_normalized.iloc[:50, c.expert_input_idx].to_csv(sequence_dir / "test_sequence_expert.csv", index=False)
+
+    ds.iloc[:50, c.expert_input_idx].to_csv(sequence_dir / "test_sequence_expert.csv", index=False)
+    ds_normalized.iloc[:50, c.expert_input_idx].to_csv(sequence_dir / "test_sequence_expert_normalized.csv", index=False)
     norm.iloc[:, c.expert_input_idx].to_csv(sequence_dir / "test_sequence_expert_norm.csv", index=False)
-    ds_normalized.iloc[:50, c.output_idx].to_csv(sequence_dir / "test_sequence_output.csv", index=False)
+
+    ds.iloc[:50, c.output_idx].to_csv(sequence_dir / "test_sequence_output.csv", index=False)
+    ds_normalized.iloc[:50, c.output_idx].to_csv(sequence_dir / "test_sequence_output_normalized.csv", index=False)
     norm.iloc[:, c.output_idx].to_csv(sequence_dir / "test_sequence_output_norm.csv", index=False)

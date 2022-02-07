@@ -1,6 +1,7 @@
 import argparse
 from datetime import datetime
 from pathlib import Path
+import re
 import shutil
 
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
@@ -18,6 +19,7 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument("dataset_directory", type=Path)
+    parser.add_argument("--name", type=str, help="optional name to give")
     args = parser.parse_args()
 
     c = DatasetConfig().from_yaml(args.dataset_directory / "dataset_config.yaml")
@@ -45,9 +47,17 @@ if __name__ == "__main__":
 
     # define callbacks used during training
     date_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
+
+    if args.name:
+        name = args.name
+    else:
+        pattern = r"\d{4}-\d{2}-\d{2}_\d{2}-\d{2}_(.*)"  # matches YYYY-MM-DD_hh_mm
+        name = next(re.finditer(pattern, c.name), "")
+
+    train_dir_name = f"{date_str}_{name.upper()}"
     file_stem = "ep-{epoch:02d}_vl-{val_loss:.5f}"
-    train_dir = Path("checkpoints") / date_str
-    cloud_dir = Path("/cloud/checkpoints") / date_str
+    train_dir = Path("checkpoints") / train_dir_name
+    cloud_dir = Path("/cloud/checkpoints") / train_dir_name
     train_dir.mkdir(exist_ok=True, parents=True)
     cloud_dir.mkdir(exist_ok=True, parents=True)
 

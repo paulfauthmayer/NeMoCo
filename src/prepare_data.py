@@ -1,7 +1,7 @@
 import argparse
 from argparse import ArgumentDefaultsHelpFormatter
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -9,6 +9,7 @@ import pyarrow as pa
 from tqdm import tqdm
 
 from globals import MODE_CROUCH, MODE_WALK, MODE_RUN, MODE_IDLE, MODE_JUMP
+
 
 def normalize_dataframe(
     df: pd.DataFrame, reference_df: pd.DataFrame = None
@@ -37,6 +38,7 @@ def normalize_dataframe(
 
     return df
 
+
 def get_mode(sequence_name: str) -> str:
     name = sequence_name.lower()
     if MODE_RUN in name:
@@ -55,14 +57,48 @@ def get_mode(sequence_name: str) -> str:
         return MODE_WALK
 
 
-def prepare_data(
+def write_mann_data(
+    input_df,
+    output_df,
+    input_df_norm,
+    output_df_norm,
+    output_directory: Path,
+    prefix=None
+):
+    input_df.drop("sequence_name", axis=1).to_csv(
+        output_directory / f"{prefix}Input.txt", sep=" ", header=False, index=False
+    )
+    output_df.to_csv(
+        output_directory / f"{prefix}Output.txt", sep=" ", header=False, index=False
+    )
+
+    input_df_norm.to_csv(
+        output_directory / f"{prefix}InputNorm.txt",
+        sep=" ",
+        header=False,
+        index=False,
+    )
+    output_df_norm.to_csv(
+        output_directory / f"{prefix}OutputNorm.txt",
+        sep=" ",
+        header=False,
+        index=False,
+    )
+
+    if prefix:
+        input_df.drop("sequence_name", axis=1).to_csv(
+            output_directory / f"{prefix}Input.csv", sep=",", index=False
+        )
+
+        output_df.to_csv(
+            output_directory / f"{prefix}Output.csv", sep=",", index=False
+        )
+
+
+def load_data(
     input_motions: List[Path],
     output_motions: List[Path],
-    output_directory: Path,
-    store_mann_version: bool,
-    prefix: str = "",
-    use_fingers: bool = False,
-):
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     # get headers and datatypes
     shared_params = {"sep": ",", "encoding": "utf-8-sig"}
@@ -79,36 +115,50 @@ def prepare_data(
 
     # read datasets
     output_df = pd.concat(pd.read_csv(path, dtype=output_dtypes, **shared_params) for path in output_motions)
-
-    # add prefix to output data for easier selection
-    output_df = output_df.add_prefix("out_")
     input_df = pd.concat(
         pd.read_csv(path, dtype=input_dtypes, **shared_params) for path in input_motions
     )
+
+    # add prefix to output data for easier selection
+    output_df = output_df.add_prefix("out_")
 
     # clean up byte order marks inserted by UE
     input_df['sequence_name'] = input_df['sequence_name'].str.replace('\ufeff', '')
     output_df.iloc[:,0] = output_df.iloc[:,0].str.replace('\ufeff', '')
     output_df = output_df.astype(np.float64)
 
+    return input_df, output_df
+
+
+def prepare_data(
+    input_motions: List[Path],
+    output_motions: List[Path],
+    output_directory: Path,
+    store_mann_version: bool,
+    prefix: str = "",
+    use_fingers: bool = False,
+) -> Tuple[Path, Path]:
+    input_data, output_data = load_data(input_motions, output_motions)
+
     # drop columns we don't need
     if not use_fingers:
         finger_regex = r"_(thumb)|(index)|(middle)|(ring)|(pinky)_"
-        input_df = input_df.drop(input_df.filter(regex=finger_regex).columns, axis=1)
-        output_df = output_df.drop(output_df.filter(regex=finger_regex).columns, axis=1)
+        input_data = input_data.drop(input_data.filter(regex=finger_regex).columns, axis=1)
+        output_data = output_data.drop(output_data.filter(regex=finger_regex).columns, axis=1)
 
     # translate sequences to modes
-    modes = input_df["sequence_name"].apply(get_mode)
+    modes = input_data["sequence_name"].apply(get_mode)
     one_hot_modes = pd.get_dummies(modes, prefix="mode")
-    input_df = pd.concat([input_df, one_hot_modes], axis=1)
-    input_df = input_df.drop("sequence_name", axis=1)
+    input_data = pd.concat([input_data, one_hot_modes], axis=1)
+    input_data = input_data.drop("sequence_name", axis=1)
 
     # get metrics required for normalization
-    input_df_norm = input_df.agg(["mean", "std"])
-    output_df_norm = output_df.agg(["mean", "std"])
+    metrics = ["mean", "std"]
+    input_df_norm = input_data.agg(metrics)
+    output_df_norm = output_data.agg(metrics)
 
     # combine dataframes into a single file
-    combined_df = pd.concat([input_df, output_df], axis=1)
+    combined_df = pd.concat([input_data, output_data], axis=1)
     combined_norm = pd.concat([input_df_norm, output_df_norm], axis=1)
 
     # save dataframes to disk
@@ -122,34 +172,12 @@ def prepare_data(
 
     # this is the format required by the original implementation
     if store_mann_version:
-        input_df.drop("sequence_name", axis=1).to_csv(
-            output_directory / f"{prefix}Input.txt", sep=" ", header=False, index=False
+        write_mann_data(
+            input_data, output_data,
+            input_df_norm, output_df_norm,
+            output_directory,
+            prefix=prefix
         )
-        output_df.to_csv(
-            output_directory / f"{prefix}Output.txt", sep=" ", header=False, index=False
-        )
-
-        input_df_norm.to_csv(
-            output_directory / f"{prefix}InputNorm.txt",
-            sep=" ",
-            header=False,
-            index=False,
-        )
-        output_df_norm.to_csv(
-            output_directory / f"{prefix}OutputNorm.txt",
-            sep=" ",
-            header=False,
-            index=False,
-        )
-
-        if prefix:
-            input_df.drop("sequence_name", axis=1).to_csv(
-                output_directory / f"{prefix}Input.csv", sep=",", index=False
-            )
-
-            output_df.to_csv(
-                output_directory / f"{prefix}Output.csv", sep=",", index=False
-            )
 
     return data_path, norm_path
 

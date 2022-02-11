@@ -5,6 +5,7 @@ from typing import List
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 from tqdm import tqdm
 
 from globals import MODE_CROUCH, MODE_WALK, MODE_RUN, MODE_IDLE, MODE_JUMP
@@ -64,12 +65,16 @@ def prepare_data(
 ):
 
     # get headers and datatypes
-    shared_params = {"sep": ",", "engine": "python", "encoding": "utf-8-sig"}
+    shared_params = {"sep": ",", "encoding": "utf-8-sig"}
     input_headers = pd.read_csv(input_motions[0], nrows=0, **shared_params).columns
     input_dtypes = {
         col: str if col == "sequence_name" else np.float64 for col in input_headers
     }
     output_dtypes = np.float64
+
+    # pyarrow is faster but doesn't support reading only part of the rows,
+    # thus we only use it after reading the header rows
+    shared_params.update({"engine": "pyarrow"})
 
     # read datasets
     output_df = pd.concat(pd.read_csv(path, dtype=output_dtypes, **shared_params) for path in output_motions)
@@ -84,7 +89,6 @@ def prepare_data(
 
     # add prefix to output data for easier selection
     output_df = output_df.add_prefix("out_")
-
     input_df = pd.concat(
         pd.read_csv(path, dtype=input_dtypes, **shared_params) for path in input_motions
     )
@@ -113,12 +117,10 @@ def prepare_data(
     prefix_snake = f"{prefix}{'_' if prefix else ''}"
     data_path = output_directory / f"{prefix_snake}motion_data.csv"
     norm_path = output_directory / f"{prefix_snake}motion_norm.csv"
-    combined_df.to_csv(
-        data_path, header=True, index=False
-    )
-    combined_norm.to_csv(
-        norm_path, header=True, index=False
-    )
+    # using pyarrow instead of pandas speeds up the writing
+    # of our csv files by a factor of 5
+    pa.csv.write_csv(pa.Table.from_pandas(combined_df), data_path)
+    pa.csv.write_csv(pa.Table.from_pandas(combined_norm), norm_path)
 
     # this is the format required by the original implementation
     if store_mann_version:

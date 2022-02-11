@@ -70,7 +70,8 @@ def prepare_data(
     input_dtypes = {
         col: str if col == "sequence_name" else np.float64 for col in input_headers
     }
-    output_dtypes = np.float64
+    output_headers = pd.read_csv(output_motions[0], nrows=0, **shared_params).columns
+    output_dtypes = {col: np.float64 if i != 0 else str for i, col in enumerate(output_headers)}
 
     # pyarrow is faster but doesn't support reading only part of the rows,
     # thus we only use it after reading the header rows
@@ -79,19 +80,16 @@ def prepare_data(
     # read datasets
     output_df = pd.concat(pd.read_csv(path, dtype=output_dtypes, **shared_params) for path in output_motions)
 
-    # check for trash data hidden in first columns
-    print(f"Checking file {output_motions} for invalid data")
-    for i, val in tqdm(enumerate(output_df["pose_root_pos_x"]), total=len(output_df)):
-        try:
-            np.float64(val)
-        except:
-            print(f"Incorrect value {val} in line {i}")
-
     # add prefix to output data for easier selection
     output_df = output_df.add_prefix("out_")
     input_df = pd.concat(
         pd.read_csv(path, dtype=input_dtypes, **shared_params) for path in input_motions
     )
+
+    # clean up byte order marks inserted by UE
+    input_df['sequence_name'] = input_df['sequence_name'].str.replace('\ufeff', '')
+    output_df.iloc[:,0] = output_df.iloc[:,0].str.replace('\ufeff', '')
+    output_df = output_df.astype(np.float64)
 
     # drop columns we don't need
     if not use_fingers:

@@ -97,8 +97,17 @@ def write_mann_data(
 
 def load_data(
     input_motions: List[Path],
-    output_motions: List[Path],
+    output_motions: List[Path] = [],
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+
+    # if needed, find matching output_motions
+    if not output_motions:
+        output_motions = []
+        for input_motion in input_motions:
+            matching_output = input_motion.parent / f"{input_motion.stem}_Output.csv"
+            if not matching_output.exists():
+                raise RuntimeError(f"Could not identify matching output to input {input_motion}")
+            output_motions.append(matching_output)
 
     # get headers and datatypes
     shared_params = {"sep": ",", "encoding": "utf-8-sig"}
@@ -138,6 +147,8 @@ def prepare_data(
     prefix: str = "",
     use_fingers: bool = False,
 ) -> Tuple[Path, Path]:
+
+    # load input and output data from disk
     input_data, output_data = load_data(input_motions, output_motions)
 
     # drop columns we don't need
@@ -162,13 +173,13 @@ def prepare_data(
     combined_norm = pd.concat([input_df_norm, output_df_norm], axis=1)
 
     # save dataframes to disk
+    # using pyarrow instead of pandas speeds up the writing
+    # of our csv files by a factor of 5
     prefix_snake = f"{prefix}{'_' if prefix else ''}"
     data_path = output_directory / f"{prefix_snake}motion_data.csv"
     norm_path = output_directory / f"{prefix_snake}motion_norm.csv"
-    # using pyarrow instead of pandas speeds up the writing
-    # of our csv files by a factor of 5
-    pa.csv.write_csv(pa.Table.from_pandas(combined_df), data_path)
-    pa.csv.write_csv(pa.Table.from_pandas(combined_norm), norm_path)
+    pa.csv.write_csv(pa.Table.from_pandas(combined_df, preserve_index=False), data_path)
+    pa.csv.write_csv(pa.Table.from_pandas(combined_norm, preserve_index=False), norm_path)
 
     # this is the format required by the original implementation
     if store_mann_version:
@@ -190,17 +201,9 @@ def main():
     parser.add_argument("--store-mann-version", action="store_true")
     parser.add_argument("--prefix", type=str, default="")
     parser.add_argument("--use-fingers", action="store_true")
-    args = vars(parser.parse_args())
+    args = parser.parse_args()
 
-    if not args["output_motions"]:
-        args["output_motions"] = []
-        for input_motion in args["input_motions"]:
-            matching_output = input_motion.parent / f"{input_motion.stem}_Output.csv"
-            if not matching_output.exists():
-                raise RuntimeError(f"Could not identify matching output to input {input_motion}")
-            args["output_motions"].append(matching_output)
-
-    prepare_data(**args)
+    prepare_data(vars(**args))
 
 
 if __name__ == "__main__":

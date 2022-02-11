@@ -9,23 +9,23 @@ from training_parameters import DatasetConfig
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("input_csv", type=Path)
-    parser.add_argument("output_csv", type=Path)
+    parser.add_argument("input_csv", type=Path, nargs="+")
     parser.add_argument("name", type=str)
+    parser.add_argument("--output-csv", type=Path, nargs="+", default=[])
     parser.add_argument("--test-sequence-dir", type=Path)
     args = parser.parse_args()
 
     dataset_path = Path("datasets")
 
     data_path, norm_path = prepare_data(
-        input_motions=[args.input_csv],
-        output_motions=[args.output_csv],
+        input_motions=args.input_csv,
+        output_motions=args.output_csv,
         output_directory=dataset_path / "prepared_datasets",
         store_mann_version=False,
         prefix=args.name
     )
 
-    config_path = generate_dataset( 
+    config_path = generate_dataset(
         data_path,
         norm_path,
         output_directory=dataset_path / "trainable_datasets",

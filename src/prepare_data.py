@@ -159,13 +159,22 @@ def prepare_data(
 def main():
     parser = argparse.ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument("--input-motions", type=Path, nargs="+", required=True)
-    parser.add_argument("--output-motions", type=Path, nargs="+", required=True)
+    parser.add_argument("--output-motions", type=Path, nargs="+", default=[])
     parser.add_argument("--output-directory", type=Path, default=Path("."))
     parser.add_argument("--store-mann-version", action="store_true")
     parser.add_argument("--prefix", type=str, default="")
     parser.add_argument("--use-fingers", action="store_true")
-    args = parser.parse_args()
-    prepare_data(**vars(args))
+    args = vars(parser.parse_args())
+
+    if not args["output_motions"]:
+        args["output_motions"] = []
+        for input_motion in args["input_motions"]:
+            matching_output = input_motion.parent / f"{input_motion.stem}_Output.csv"
+            if not matching_output.exists():
+                raise RuntimeError(f"Could not identify matching output to input {input_motion}")
+            args["output_motions"].append(matching_output)
+
+    prepare_data(**args)
 
 
 if __name__ == "__main__":

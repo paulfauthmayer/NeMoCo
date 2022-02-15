@@ -27,6 +27,7 @@ ENV PATH $PATH:${NVM_DIR}/versions/node/v${NODE_VERSION}/bin
 # install python requirements
 RUN pip install \
     black \
+    imageio \
     jupyterlab \
     matplotlib \
     onnxruntime \

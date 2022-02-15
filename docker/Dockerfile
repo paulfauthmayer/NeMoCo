@@ -15,10 +15,14 @@ RUN apt update && \
         --yes && \
     apt clean
 
-# install newest node version
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.3/install.sh | bash; \
-    source ~/.bashrc; \
-    nvm install node;
+# Installing Node
+ENV NODE_VERSION 12.14.1
+SHELL ["/bin/bash", "--login", "-i", "-c"]
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.35.2/install.sh | bash
+RUN source /root/.bashrc && nvm install ${NODE_VERSION}
+SHELL ["/bin/bash", "--login", "-c"]
+ENV NVM_DIR /root/.nvm
+ENV PATH $PATH:${NVM_DIR}/versions/node/v${NODE_VERSION}/bin
 
 # install python requirements
 RUN pip install \

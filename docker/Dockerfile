@@ -42,6 +42,6 @@ RUN pip install \
     tqdm
 
 # setup jupyterlab
-RUN jupyter lab build
+RUN jupyter-lab build -y
 
 ENTRYPOINT [ "bash" ]

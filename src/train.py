@@ -4,11 +4,12 @@ from pathlib import Path
 import re
 import shutil
 
+import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
-from tensorflow_addons import optimizers
+import tensorflow_addons as tfa
 from generate_datasets import load_dataset
 
-from callbacks import OnnxCheckpointCallback
+from callbacks import KerasCheckpoint, OnnxCheckpoint
 from models import NeMoCoModel, load_model
 from training_parameters import DatasetConfig, TrainingParameters
 
@@ -25,10 +26,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     c = DatasetConfig().from_yaml(args.dataset_directory / "dataset_config.yaml")
+
+    # instantiate model
     if args.restart:
         print(f"retraining checkpoint {args.restart}")
-        p = TrainingParameters(1, 1, 1).from_yaml(args.restart.parent /
-                                                  "train_config.yaml")
+        p = TrainingParameters(1, 1, 1).from_yaml(args.restart.parent / "train_config.yaml")
         model = load_model(args.restart)
     else:
         p = TrainingParameters(
@@ -37,7 +39,8 @@ if __name__ == "__main__":
             batch_size=128,
             gating_layer_units=[32, 32, 32],
             expert_layer_units=[512, 512, 512],
-            dropout_prob=0.5
+            dropout_prob=0.5,
+            optimizer="AdamW"
         )
 
         # instantiate model
@@ -48,7 +51,17 @@ if __name__ == "__main__":
             p.dropout_prob
         )
     model.summary()
-    optimizer = p.optimizer(**p.optimizer_settings)
+
+    # handle optimizer initalization
+    if p.optimizer.__name__ == "AdamW":
+        lr_schedule = tf.optimizers.schedules.ExponentialDecay(1e-4, 100, 0.9)
+        wd_schedule = tf.optimizers.schedules.ExponentialDecay(5e-5, 100, 0.9)
+        optimizer = tfa.optimizers.AdamW(learning_rate=lr_schedule, weight_decay=lambda : None)
+        optimizer.weight_decay = lambda : wd_schedule(optimizer.iterations)
+    else:
+        optimizer = p.optimizer(**p.optimizer_settings)
+
+
     model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])
 
     # pick dataset and prepare subsets for training
@@ -68,10 +81,10 @@ if __name__ == "__main__":
 
     if args.optimize_train:
         monitor = "loss"
-        file_stem = "ep-{epoch:02d}_tl-{loss:.5f}"
+        file_stem = "ep-{epoch:05d}_tl-{loss:.5f}"
     else:
         monitor = "val_loss"
-        file_stem = "ep-{epoch:02d}_vl-{val_loss:.5f}"
+        file_stem = "ep-{epoch:05d}_vl-{val_loss:.5f}"
     train_dir_name = f"{date_str}_{name.upper()}"
     train_dir = Path("checkpoints") / train_dir_name
     cloud_dir = Path("/cloud/checkpoints") / train_dir_name
@@ -79,9 +92,9 @@ if __name__ == "__main__":
     cloud_dir.mkdir(exist_ok=True, parents=True)
 
     keras_filepath = train_dir / f"{file_stem}.h5"
-    keras_checkpoint_cb = ModelCheckpoint(filepath=keras_filepath, save_best_only=True, verbose=True, monitor=monitor)
+    keras_checkpoint_cb = KerasCheckpoint(filepath=keras_filepath, save_best_only=True, monitor=monitor)
     onnx_filepath = cloud_dir / f"{file_stem}.onnx"
-    onnx_checkpoint_cb = OnnxCheckpointCallback(filepath=onnx_filepath, save_best_only=True, monitor=monitor)
+    onnx_checkpoint_cb = OnnxCheckpoint(filepath=onnx_filepath, save_best_only=True, monitor=monitor)
 
     log_dir = train_dir / "logs"
     tensorboard_cb = TensorBoard(log_dir=log_dir)

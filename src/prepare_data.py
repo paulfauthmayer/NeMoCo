@@ -146,6 +146,7 @@ def prepare_data(
     store_mann_version: bool,
     prefix: str = "",
     use_fingers: bool = False,
+    use_twist: bool = False,
 ) -> Tuple[Path, Path]:
 
     # load input and output data from disk
@@ -156,6 +157,12 @@ def prepare_data(
         finger_regex = r"_(thumb)|(index)|(middle)|(ring)|(pinky)_"
         input_data = input_data.drop(input_data.filter(regex=finger_regex).columns, axis=1)
         output_data = output_data.drop(output_data.filter(regex=finger_regex).columns, axis=1)
+    if not use_twist:
+        twist_regex = r"_twist_"
+        input_data = input_data.drop(
+            input_data.filter(regex=twist_regex).columns, axis=1)
+        output_data = output_data.drop(
+            output_data.filter(regex=twist_regex).columns, axis=1)
 
     # translate sequences to modes
     modes = input_data["sequence_name"].apply(get_mode)
@@ -201,6 +208,7 @@ def main():
     parser.add_argument("--store-mann-version", action="store_true")
     parser.add_argument("--prefix", type=str, default="")
     parser.add_argument("--use-fingers", action="store_true")
+    parser.add_argument("--use-twist", action="store_true")
     args = parser.parse_args()
 
     prepare_data(vars(**args))

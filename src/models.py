@@ -3,6 +3,7 @@ from typing import List
 
 import tensorflow as tf
 from tensorflow.keras.layers import Dense, Input, ELU, Dropout
+from tensorflow.keras import activations
 
 class DenseExpert(tf.keras.layers.Layer):
     def __init__(
@@ -10,6 +11,7 @@ class DenseExpert(tf.keras.layers.Layer):
         self,
         units,
         experts,
+        activation=None,
         trainable=True,
         name=None,
         dtype=None,
@@ -21,12 +23,14 @@ class DenseExpert(tf.keras.layers.Layer):
         )
         self.units = units
         self.experts = experts
+        self.activation = activations.get(activation)
 
     def get_config(self):
         config = super().get_config()
         config.update({
             "units": self.units,
             "experts": self.experts,
+            "activation": self.activation,
         })
         return config
 
@@ -55,6 +59,9 @@ class DenseExpert(tf.keras.layers.Layer):
         r = w @ x                                               # r: {batch_size, output, 1}
         r = tf.squeeze(r, -1)                                   # r: {batch_size, output}
         r = r + b
+
+        if self.activation is not None:
+            r = self.activation(r)
 
         return r
 
@@ -139,8 +146,7 @@ class NeMoCoModel(tf.keras.Model):
         # Expert Network
         x = expert_input
         for units in expert_layer_units:
-            x = DenseExpert(units, num_experts)([x, gating_out])
-            x = ELU()(x)
+            x = DenseExpert(units, num_experts, "elu")([x, gating_out])
             x = Dropout(dropout_prob)(x)
         y = DenseExpert(expert_output_features, num_experts, name="final_output")([x, gating_out])
 

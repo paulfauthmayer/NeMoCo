@@ -9,7 +9,7 @@ from tensorflow_addons import optimizers
 from generate_datasets import load_dataset
 
 from callbacks import OnnxCheckpointCallback
-from models import NeMoCoModel
+from models import NeMoCoModel, load_model
 from training_parameters import DatasetConfig, TrainingParameters
 
 
@@ -20,21 +20,32 @@ if __name__ == "__main__":
     )
     parser.add_argument("dataset_directory", type=Path)
     parser.add_argument("--name", type=str, help="optional name to give")
+    parser.add_argument("--restart", type=Path, help="restart the training with a pretrained model")
     args = parser.parse_args()
 
     c = DatasetConfig().from_yaml(args.dataset_directory / "dataset_config.yaml")
-    p = TrainingParameters(dataset_config=c)
+    if args.restart:
+        print(f"retraining checkpoint {args.restart}")
+        p = TrainingParameters(1, 1, 1).from_yaml(args.restart.parent /
+                                                  "train_config.yaml")
+        model = load_model(args.restart)
+    else:
+        p = TrainingParameters(
+            dataset_config=c,
+            num_experts=4,
+            batch_size=128,
+            gating_layer_units=[32, 32, 32],
+            expert_layer_units=[512, 512, 512],
+            dropout_prob=0.5
+        )
 
-    # instantiate model
-    model = NeMoCoModel(
-        p.gating_input_features,
-        p.gating_layer_units,
-        p.expert_input_features,
-        p.expert_layer_units,
-        p.num_experts,
-        p.expert_output_features,
-        p.dropout_prob
-    )
+        # instantiate model
+        model = NeMoCoModel(
+            p.gating_input_features, p.gating_layer_units,
+            p.expert_input_features, p.expert_layer_units,
+            p.num_experts, p.expert_output_features,
+            p.dropout_prob
+        )
     model.summary()
     optimizer = p.optimizer(**p.optimizer_settings)
     model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])

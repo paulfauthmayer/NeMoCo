@@ -44,4 +44,17 @@ RUN pip install \
 # setup jupyterlab
 RUN jupyter-lab build -y
 
+# create writable directories for matplotlib cache and config
+RUN mkdir -p /.config/matplotlib && chmod -R 777 /.config/matplotlib && mkdir -p /.cache/matplotlib && chmod -R 777 /.cache/matplotlib
+
+# set a custom user
+ENV USERNAME dev
+RUN useradd --create-home --user-group --uid 1000 ${USERNAME}
+USER ${USERNAME}
+ENV HOME /home/${USERNAME}
+
+# setup custom bashrc
+COPY bash.bashrc /etc/bash.bashrc
+COPY .bashrc /home/dev/.bashrc
+
 ENTRYPOINT [ "bash" ]

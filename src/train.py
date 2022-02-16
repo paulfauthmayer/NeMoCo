@@ -21,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("dataset_directory", type=Path)
     parser.add_argument("--name", type=str, help="optional name to give")
     parser.add_argument("--restart", type=Path, help="restart the training with a pretrained model")
+    parser.add_argument("--optimize-train", action="store_true", help="use loss instead of validation loss for best models")
     args = parser.parse_args()
 
     c = DatasetConfig().from_yaml(args.dataset_directory / "dataset_config.yaml")
@@ -65,17 +66,22 @@ if __name__ == "__main__":
         pattern = r"(?:\d{4}-\d{2}-\d{2}_\d{2}-\d{2}_)(.*)|$"  # matches YYYY-MM-DD_hh_mm
         name = re.findall(pattern, c.name)[0]
 
+    if args.optimize_train:
+        monitor = "loss"
+        file_stem = "ep-{epoch:02d}_tl-{loss:.5f}"
+    else:
+        monitor = "val_loss"
+        file_stem = "ep-{epoch:02d}_vl-{val_loss:.5f}"
     train_dir_name = f"{date_str}_{name.upper()}"
-    file_stem = "ep-{epoch:02d}_vl-{val_loss:.5f}"
     train_dir = Path("checkpoints") / train_dir_name
     cloud_dir = Path("/cloud/checkpoints") / train_dir_name
     train_dir.mkdir(exist_ok=True, parents=True)
     cloud_dir.mkdir(exist_ok=True, parents=True)
 
     keras_filepath = train_dir / f"{file_stem}.h5"
-    keras_checkpoint_cb = ModelCheckpoint(filepath=keras_filepath, save_best_only=True, verbose=True)
+    keras_checkpoint_cb = ModelCheckpoint(filepath=keras_filepath, save_best_only=True, verbose=True, monitor=monitor)
     onnx_filepath = cloud_dir / f"{file_stem}.onnx"
-    onnx_checkpoint_cb = OnnxCheckpointCallback(filepath=onnx_filepath, save_best_only=True)
+    onnx_checkpoint_cb = OnnxCheckpointCallback(filepath=onnx_filepath, save_best_only=True, monitor=monitor)
 
     log_dir = train_dir / "logs"
     tensorboard_cb = TensorBoard(log_dir=log_dir)

@@ -6,7 +6,6 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-from tqdm import tqdm
 
 from globals import MODE_CROUCH, MODE_WALK, MODE_RUN, MODE_IDLE, MODE_JUMP
 
@@ -211,7 +210,7 @@ def main():
     parser.add_argument("--use-twist", action="store_true")
     args = parser.parse_args()
 
-    prepare_data(vars(**args))
+    prepare_data(**vars(args))
 
 
 if __name__ == "__main__":

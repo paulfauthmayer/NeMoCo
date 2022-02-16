@@ -46,7 +46,7 @@ class BaseConfig:
         for attr, value in self.__dict__.items():
             new_value = loaded_config.get(attr, value)
             setattr(self, attr, new_value)
-        
+
         return self
 
     def readable(self) -> dict:
@@ -103,21 +103,36 @@ class DatasetConfig(BaseConfig):
 
             data_head = pd.read_csv(dataset_csv_path, nrows=0)
 
-            self.gating_input_cols = list(
-                data_head
-                .filter(regex=r"(?<!_)root_|foot_[rl]_contact|mode_|(?<!_)effector_")
-                .columns
-            )
+            excluded_cols = data_head.filter(regex=r"effector_vel|mode_").columns
+
             self.output_cols = list(
                 data_head
                 .filter(regex=r"^out_")  # matches all that start with "out_"
+                .drop(excluded_cols, axis=1, errors="ignore")
+                .columns
+            )
+            self.gating_input_cols = list(
+                data_head
+                .drop(self.output_cols, axis=1)
+                .drop(excluded_cols, axis=1, errors="ignore")
+                .filter(regex=r"root_(position|velocity|direction|angle)|(?<!_)effector_ball_[lr]")
                 .columns
             )
             self.expert_input_cols = list(
                 data_head
                 .drop(self.output_cols, axis=1)
+                .drop(excluded_cols, axis=1, errors="ignore")
+                .drop(data_head.filter(regex=r"foot_[rl]_contact").columns, axis=1)
                 .columns
             )
+
+            unused_columns = [
+                col for col in data_head.columns
+                if col not in [*excluded_cols, *self.output_cols, *self.gating_input_cols, *self.expert_input_cols]
+            ]
+            if unused_columns:
+                print("Warning: The following columns weren't explicitly included or excluded:")
+                print("\n".join([f"\t* {col}" for col in unused_columns]))
 
             self.expert_input_idx = [
                 data_head.columns.get_loc(col) for col in self.expert_input_cols

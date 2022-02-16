@@ -62,8 +62,8 @@ if __name__ == "__main__":
     if args.name:
         name = args.name
     else:
-        pattern = r"\d{4}-\d{2}-\d{2}_\d{2}-\d{2}_(.*)"  # matches YYYY-MM-DD_hh_mm
-        name = next(re.finditer(pattern, c.name), "").group(0)
+        pattern = r"(?:\d{4}-\d{2}-\d{2}_\d{2}-\d{2}_)(.*)|$"  # matches YYYY-MM-DD_hh_mm
+        name = re.findall(pattern, c.name)[0]
 
     train_dir_name = f"{date_str}_{name.upper()}"
     file_stem = "ep-{epoch:02d}_vl-{val_loss:.5f}"

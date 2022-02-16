@@ -41,7 +41,7 @@ def nemoco_example(sample: np.array, norm_data: np.array, c: DatasetConfig) -> t
     # TODO: check for exploding values
     # for now this shouldn't be an issue as we only expect the epsilon to take effect
     # for all-zero columns
-    sample_data = (sample_data - norm_data[0]) / (norm_data[1] - EPS)
+    sample_data = (sample_data - norm_data[0]) / (norm_data[1] + EPS)
 
     gating_input = np.array(sample_data[c.gating_input_idx], dtype=np.float32)
     expert_input = np.array(sample_data[c.expert_input_idx], dtype=np.float32)

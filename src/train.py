@@ -1,15 +1,16 @@
 import argparse
 from datetime import datetime
+import math
 from pathlib import Path
 import re
 import shutil
 
-import tensorflow as tf
-from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
+from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.optimizers.schedules import CosineDecayRestarts
 import tensorflow_addons as tfa
 from generate_datasets import load_dataset
 
-from callbacks import KerasCheckpoint, OnnxCheckpoint
+from callbacks import DecayHistory, KerasCheckpoint, OnnxCheckpoint
 from models import NeMoCoModel, load_model
 from training_parameters import DatasetConfig, TrainingParameters
 
@@ -53,15 +54,7 @@ if __name__ == "__main__":
     model.summary()
 
     # handle optimizer initalization
-    if p.optimizer.__name__ == "AdamW":
-        lr_schedule = tf.optimizers.schedules.ExponentialDecay(1e-4, 100, 0.9)
-        wd_schedule = tf.optimizers.schedules.ExponentialDecay(5e-5, 100, 0.9)
-        optimizer = tfa.optimizers.AdamW(learning_rate=lr_schedule, weight_decay=lambda : None)
-        optimizer.weight_decay = lambda : wd_schedule(optimizer.iterations)
-    else:
-        optimizer = p.optimizer(**p.optimizer_settings)
-
-
+    optimizer = p.optimizer(**p.optimizer_settings)
     model.compile(optimizer=optimizer, loss="mse", metrics=["mae"])
 
     # pick dataset and prepare subsets for training
@@ -113,6 +106,13 @@ if __name__ == "__main__":
     for filepath in test_sequence_files:
         shutil.copy(filepath, cloud_dir / filepath.name)
 
+    # accumulate all callbacks
+    callbacks=[
+        keras_checkpoint_cb,
+        onnx_checkpoint_cb,
+        tensorboard_cb
+    ]
+
     # compile model and start training
     model.fit(
         train_ds,
@@ -120,9 +120,5 @@ if __name__ == "__main__":
         epochs=p.num_epochs,
         validation_data=val_ds,
         verbose=1,
-        callbacks=[
-            keras_checkpoint_cb,
-            onnx_checkpoint_cb,
-            tensorboard_cb
-        ],
+        callbacks=callbacks
     )

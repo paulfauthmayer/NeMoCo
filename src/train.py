@@ -26,12 +26,12 @@ if __name__ == "__main__":
     parser.add_argument("--optimize-train", action="store_true", help="use loss instead of validation loss for best models")
     args = parser.parse_args()
 
-    c = DatasetConfig().from_yaml(args.dataset_directory / "dataset_config.yaml")
+    c = DatasetConfig.from_yaml(args.dataset_directory / "dataset_config.yaml")
 
     # instantiate model
     if args.restart:
         print(f"retraining checkpoint {args.restart}")
-        p = TrainingParameters(1, 1, 1).from_yaml(args.restart.parent / "train_config.yaml")
+        p = TrainingParameters.from_yaml(args.restart.parent / "train_config.yaml")
         model = load_model(args.restart)
     else:
         p = TrainingParameters(

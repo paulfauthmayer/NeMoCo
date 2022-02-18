@@ -36,19 +36,22 @@ class BaseConfig:
     def __init__(self):
         self.conversions = defaultdict(Conversion)
 
-    def from_yaml(self, yaml_path: Path):
+    @classmethod
+    def from_yaml(cls, yaml_path: Path):
+        # create new class instance as placeholder
+        config = cls()
 
         # load config from dist
         with open(yaml_path, "r") as f:
             loaded_config = yaml.safe_load(f)
-        loaded_config = {k: self.conversions[k].real(v) for k, v in loaded_config.items()}
+        loaded_config = {k: config.conversions[k].real(v) for k, v in loaded_config.items()}
 
         # overwrite own attributes if they're included in the config
-        for attr, value in self.__dict__.items():
+        for attr, value in config.__dict__.items():
             new_value = loaded_config.get(attr, value)
-            setattr(self, attr, new_value)
+            setattr(config, attr, new_value)
 
-        return self
+        return config
 
     def readable(self) -> dict:
         d = {k: v for k, v in self.__dict__.items() if k != "conversions"}
@@ -116,7 +119,7 @@ class DatasetConfig(BaseConfig):
                 data_head
                 .drop(self.output_cols, axis=1)
                 .drop(excluded_cols, axis=1, errors="ignore")
-                .filter(regex=r"root_(position|velocity|direction|angle)|(?<!_)effector_ball_[lr]")
+                .filter(regex=r"root_(position|velocity|direction|angle|length)|(?<!_)effector_ball_[lr]")
                 .columns
             )
             self.expert_input_cols = list(
@@ -169,9 +172,6 @@ class TrainingParameters(BaseConfig):
         optimizer_settings: dict = {},
         dataset_config: DatasetConfig = None,
     ) -> None:
-
-        if not(dataset_config or all([gating_input_features, expert_input_features, expert_output_features])):
-            raise RuntimeError("You need to specify either the dataset or input dimensions manually")
 
         super().__init__()
         self.conversions.update({

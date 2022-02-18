@@ -20,6 +20,7 @@ optimizers = {
     "SGD": tf.keras.optimizers.SGD,
     # Tensorflow Addons Optimizers
     "AdamW": tfa.optimizers.AdamW,
+    "AdaBelief": tfa.optimizers.AdaBelief,
     # Others
 }
 optimizers_inv = {v: k for k, v in optimizers.items()}

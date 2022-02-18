@@ -7,7 +7,6 @@ from tensorflow.keras import activations
 
 class DenseExpert(tf.keras.layers.Layer):
     def __init__(
-        #TODO: define activation function for layer
         self,
         units,
         experts,

@@ -1,16 +1,21 @@
 import argparse
 from datetime import datetime
 import math
+import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
+import sys
+from tempfile import NamedTemporaryFile
 
 from tensorflow.keras.callbacks import TensorBoard
 from tensorflow.keras.optimizers.schedules import CosineDecayRestarts
 import tensorflow_addons as tfa
-from generate_datasets import load_dataset
+import yaml
 
 from callbacks import DecayHistory, KerasCheckpoint, OnnxCheckpoint
+from generate_datasets import load_dataset
 from models import NeMoCoModel, load_model
 from training_parameters import DatasetConfig, TrainingParameters
 
@@ -24,26 +29,33 @@ if __name__ == "__main__":
     parser.add_argument("--name", type=str, help="optional name to give")
     parser.add_argument("--restart", type=Path, help="restart the training with a pretrained model")
     parser.add_argument("--optimize-train", action="store_true", help="use loss instead of validation loss for best models")
+    parser.add_argument("--configure", action="store_true", help="open a default train configuration and edit it")
     args = parser.parse_args()
 
     c = DatasetConfig.from_yaml(args.dataset_directory / "dataset_config.yaml")
 
     # instantiate model
+    p = TrainingParameters(
+        dataset_config=c,
+        num_experts=4,
+        batch_size=128,
+        gating_layer_units=[32, 32, 32],
+        expert_layer_units=[512, 512, 512],
+        dropout_prob=0.5,
+        optimizer="AdaBelief",
+    )
+    if args.configure:
+        EDITOR = os.environ.get('EDITOR', 'vim')
+        with NamedTemporaryFile(prefix='config_', mode='w', suffix='.yaml') as temp:
+            p.to_yaml(temp.name)
+            subprocess.call([EDITOR, temp.name])
+            p = TrainingParameters.from_yaml(temp.name)
+
     if args.restart:
         print(f"retraining checkpoint {args.restart}")
         p = TrainingParameters.from_yaml(args.restart.parent / "train_config.yaml")
         model = load_model(args.restart)
     else:
-        p = TrainingParameters(
-            dataset_config=c,
-            num_experts=4,
-            batch_size=128,
-            gating_layer_units=[32, 32, 32],
-            expert_layer_units=[512, 512, 512],
-            dropout_prob=0.5,
-            optimizer="AdamW"
-        )
-
         # instantiate model
         model = NeMoCoModel(
             p.gating_input_features, p.gating_layer_units,

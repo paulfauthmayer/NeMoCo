@@ -5,6 +5,8 @@ import tensorflow as tf
 from tensorflow.keras.layers import Dense, Input, ELU, Dropout
 from tensorflow.keras import activations
 
+from globals import GATING_INPUT, EXPERT_INPUT, OUTPUT
+
 class DenseExpert(tf.keras.layers.Layer):
     def __init__(
         self,
@@ -132,8 +134,8 @@ class NeMoCoModel(tf.keras.Model):
         expert_output_features: int,
         dropout_prob: float
     ):
-        gating_input = Input(shape=(gating_input_features,), name="gating_input")
-        expert_input = Input(shape=(expert_input_features,), name="expert_input")
+        gating_input = Input(shape=(gating_input_features,), name=GATING_INPUT)
+        expert_input = Input(shape=(expert_input_features,), name=EXPERT_INPUT)
 
         # Gating Network
         x = gating_input
@@ -153,9 +155,9 @@ class NeMoCoModel(tf.keras.Model):
 
     def train_step(self, data):
         # unpack the data
-        x_expert = tf.sparse.to_dense(data["expert_input"])
-        x_gating = tf.sparse.to_dense(data["gating_input"])
-        y = tf.sparse.to_dense(data["output"])
+        x_expert = tf.sparse.to_dense(data[EXPERT_INPUT])
+        x_gating = tf.sparse.to_dense(data[GATING_INPUT])
+        y = tf.sparse.to_dense(data[OUTPUT])
 
         with tf.GradientTape() as tape:
 
@@ -177,9 +179,9 @@ class NeMoCoModel(tf.keras.Model):
 
     def test_step(self, data):
         # unpack the data
-        x_expert = tf.sparse.to_dense(data["expert_input"])
-        x_gating = tf.sparse.to_dense(data["gating_input"])
-        y = tf.sparse.to_dense(data["output"])
+        x_expert = tf.sparse.to_dense(data[EXPERT_INPUT])
+        x_gating = tf.sparse.to_dense(data[GATING_INPUT])
+        y = tf.sparse.to_dense(data[OUTPUT])
 
         # compute predictions
         y_pred = self([x_gating, x_expert], training=False)

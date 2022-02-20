@@ -10,13 +10,15 @@ import pandas as pd
 from tqdm import tqdm
 
 from globals import EPS, SEED
+from globals import TRAIN, VAL, TEST
+from globals import GATING_INPUT, EXPERT_INPUT, OUTPUT
 from prepare_data import prepare_data
 from training_parameters import DatasetConfig
 
 FEATURE_DESCRIPTION = {
-    "gating_input": tf.io.VarLenFeature(np.float32),
-    "expert_input": tf.io.VarLenFeature(np.float32),
-    "output": tf.io.VarLenFeature(np.float32),
+    GATING_INPUT: tf.io.VarLenFeature(np.float32),
+    EXPERT_INPUT: tf.io.VarLenFeature(np.float32),
+    OUTPUT: tf.io.VarLenFeature(np.float32),
 }
 
 
@@ -50,9 +52,9 @@ def nemoco_example(sample: np.array, norm_data: np.array, c: DatasetConfig) -> t
     output = np.array(sample_data[c.output_idx], dtype=np.float32)
 
     feature = {
-        "gating_input": _float_feature(gating_input),
-        "expert_input": _float_feature(expert_input),
-        "output": _float_feature(output),
+        GATING_INPUT: _float_feature(gating_input),
+        EXPERT_INPUT: _float_feature(expert_input),
+        OUTPUT: _float_feature(output),
     }
 
     return tf.train.Example(features=tf.train.Features(feature=feature))
@@ -75,7 +77,7 @@ def generate_dataset(
     data_path, data = prepare_data([input_data_path], [], output_directory=dataset_directory)
 
     # generate dataset config and define input and output features
-    split_ratios = {"train": .7, "val": .15, "test": .15}
+    split_ratios = {TRAIN: .7, VAL: .15, TEST: .15}
     c = DatasetConfig(data_path, norm_data_path, split_ratios=split_ratios)
     print(
         "Features > "
@@ -90,12 +92,12 @@ def generate_dataset(
     rng = np.random.default_rng(SEED)
     def subset_from_random_number():
         x = rng.random()
-        if x <= c.split_ratios["train"]:
-            return "train"
-        elif x <= c.split_ratios["train"] + c.split_ratios["val"]:
-            return "val"
+        if x <= c.split_ratios[TRAIN]:
+            return TRAIN
+        elif x <= c.split_ratios[TRAIN] + c.split_ratios[VAL]:
+            return VAL
         else:
-            return "test"
+            return TEST
     data["subset"] = [subset_from_random_number() for _ in range(len(data))]
 
     counts = data["subset"].value_counts()
@@ -107,7 +109,7 @@ def generate_dataset(
     c.num_samples_per_split = counts
 
     # generate standardization data from train data
-    train_data = data[data["subset"] == "train"]
+    train_data = data[data["subset"] == TRAIN]
     norm_data_df = train_data.drop("subset", axis=1).agg(["mean", "std"])
     norm_data = norm_data_df.to_numpy()
 

@@ -8,6 +8,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 import tf2onnx
 
+from globals import GATING_INPUT, EXPERT_INPUT, OUTPUT
 from models import NeMoCoModel, DenseExpert
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -29,8 +30,8 @@ def none_to_num(array: np.array, num: int) -> Iterable:
 def convert_model_to_onnx(model: Model, output_path: Path):
     # define fixed input shapes
     input_signature = (
-        tf.TensorSpec((1, model.input_shape[0][1]), tf.float32, name="gating_input"),
-        tf.TensorSpec((1, model.input_shape[1][1]), tf.float32, name="expert_input")
+        tf.TensorSpec((1, model.input_shape[0][1]), tf.float32, name=GATING_INPUT),
+        tf.TensorSpec((1, model.input_shape[1][1]), tf.float32, name=EXPERT_INPUT)
     )
 
     # add gating output as an additional output

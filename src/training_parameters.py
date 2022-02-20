@@ -9,6 +9,8 @@ import tensorflow_addons as tfa
 from typing import Any, List
 import yaml
 
+from globals import TRAIN, VAL, TEST
+
 optimizers = {
     # Default Tensorflow Optimizers
     "Adadelta": tf.keras.optimizers.Adam,
@@ -69,7 +71,7 @@ class DatasetConfig(BaseConfig):
         self,
         dataset_csv_path: Path = None,
         dataset_norm_csv_path: Path = None,
-        split_ratios: dict = {"train": 0.70, "val": 0.15, "test": 0.15},
+        split_ratios: dict = {TRAIN: 0.70, "val": 0.15, "test": 0.15},
     ) -> None:
 
         super().__init__()

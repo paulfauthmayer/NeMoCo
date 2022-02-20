@@ -2,6 +2,7 @@ import argparse
 from collections import defaultdict
 from pathlib import Path
 from datetime import datetime
+from posixpath import split
 
 import tensorflow as tf
 import numpy as np
@@ -9,6 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from globals import EPS, SEED
+from prepare_data import prepare_data
 from training_parameters import DatasetConfig
 
 FEATURE_DESCRIPTION = {
@@ -57,67 +59,86 @@ def nemoco_example(sample: np.array, norm_data: np.array, c: DatasetConfig) -> t
 
 
 def generate_dataset(
-    data_path: Path,
-    norm_data_path: Path,
+    input_data_path: Path,
     output_directory: Path,
     name: str = "",
 ):
-
-    c = DatasetConfig(data_path, norm_data_path)
-    norm_data_ds = pd.read_csv(c.dataset_norm_csv_path)
-    norm_data = norm_data_ds.to_numpy()
-
+    # prepare output directory
     dataset_name = datetime.now().strftime("%Y-%m-%d_%H-%M") + (
         f"_{name}".upper() if name else ""
     )
     dataset_directory = output_directory / dataset_name
+    dataset_directory.mkdir(exist_ok=True, parents=True)
+    norm_data_path = dataset_directory / "motion_norm.csv"
+
+    # prepare data
+    data_path, data = prepare_data([input_data_path], [], output_directory=dataset_directory)
+
+    # generate dataset config and define input and output features
+    split_ratios = {"train": .7, "val": .15, "test": .15}
+    c = DatasetConfig(data_path, norm_data_path, split_ratios=split_ratios)
+    print(
+        "Features > "
+        f"gating: {len(c.gating_input_cols):3d} "
+        f"expert: {len(c.expert_input_cols):3d} "
+        f"output: {len(c.output_cols):3d}"
+        )
     c.dataset_directory = dataset_directory
     c.name = dataset_name
-    dataset_directory.mkdir(exist_ok=True, parents=True)
-    record_file_train = dataset_directory / "train.tfrecords"
-    record_file_test = dataset_directory / "test.tfrecords"
-    record_file_val = dataset_directory / "val.tfrecords"
 
-    with open(c.dataset_csv_path, "r") as f, tf.io.TFRecordWriter(
-        str(record_file_train)
-    ) as train_writer, tf.io.TFRecordWriter(
-        str(record_file_test)
-    ) as test_writer, tf.io.TFRecordWriter(
-        str(record_file_val)
-    ) as val_writer:
-        # skip the header row
-        _ = f.readline()
+    # split data into subsets
+    rng = np.random.default_rng(SEED)
+    def subset_from_random_number():
+        x = rng.random()
+        if x <= c.split_ratios["train"]:
+            return "train"
+        elif x <= c.split_ratios["train"] + c.split_ratios["val"]:
+            return "val"
+        else:
+            return "test"
+    data["subset"] = [subset_from_random_number() for _ in range(len(data))]
 
-        counter = defaultdict(int)
-        rng = np.random.default_rng(SEED)
+    counts = data["subset"].value_counts()
+    counts = {k: int(v) for k, v in counts.items()}
+    print("Splits: ", end="")
+    for key, value in counts.items():
+        print(f"[{key} : {value} ({value/c.num_samples:.1%})] ", end="")
+    print()
+    c.num_samples_per_split = counts
 
-        for sample in tqdm(f.readlines(), total=c.num_samples):
-            sample = sample.split(",")
-            sample = np.array([np.float32(x) for x in sample])
-            example = nemoco_example(sample, norm_data, c)
-            example = example.SerializeToString()
+    # generate standardization data from train data
+    train_data = data[data["subset"] == "train"]
+    norm_data_df = train_data.drop("subset", axis=1).agg(["mean", "std"])
+    norm_data = norm_data_df.to_numpy()
 
-            x = rng.random()
-            if x <= c.split_ratios["train"]:
-                counter["train"] += 1
-                train_writer.write(example)
-            elif x <= c.split_ratios["train"] + c.split_ratios["val"]:
-                counter["val"] += 1
-                val_writer.write(example)
-            else:
-                counter["test"] += 1
-                test_writer.write(example)
+    # save dataset configuration
+    summary_file = dataset_directory / "dataset_config.yaml"
+    c.to_yaml(summary_file)
 
-        c.num_samples_per_split = dict(counter)
-        print("Splits: ", end="")
-        for key, value in counter.items():
-            print(f"[{key} : {value} ({value/c.num_samples:.1%})] ", end="")
-        print()
+    # write a tfrecord file for each subset
+    for subset, group in data.groupby("subset"):
+        record_file = dataset_directory / f"{subset}.tfrecords"
+        with tf.io.TFRecordWriter(str(record_file)) as writer:
+            for _, row in tqdm(group.iterrows(), total=c.num_samples_per_split[subset]):
+                sample = row.drop("subset").to_numpy().astype(np.float32)
+                example = nemoco_example(sample, norm_data, c)
+                example = example.SerializeToString()
+                writer.write(example)
+
 
     # save norm data in the same split
-    norm_data_ds.iloc[:, c.expert_input_idx].to_csv(dataset_directory / "norm_expert.csv", index=False, header=True)
-    norm_data_ds.iloc[:, c.gating_input_idx].to_csv(dataset_directory / "norm_gating.csv", index=False, header=True)
-    norm_data_ds.iloc[:, c.output_idx].to_csv(dataset_directory / "norm_output.csv", index=False, header=True)
+    norm_data_df.to_csv(norm_data_path, index=False, header=True)
+    norm_expert = norm_data_df.iloc[:, c.expert_input_idx]
+    norm_expert.to_csv(dataset_directory / "norm_expert.csv", index=False, header=True)
+    norm_gating = norm_data_df.iloc[:, c.gating_input_idx]
+    norm_gating.to_csv(dataset_directory / "norm_gating.csv", index=False, header=True)
+    norm_output = norm_data_df.iloc[:, c.output_idx]
+    norm_output.to_csv(dataset_directory / "norm_output.csv", index=False, header=True)
+
+    # save test sequences for debug purposes
+    data.iloc[:50, c.gating_input_idx].to_csv(dataset_directory / "test_sequence_gating.csv", index=False)
+    data.iloc[:50, c.expert_input_idx].to_csv(dataset_directory / "test_sequence_expert.csv", index=False)
+    data.iloc[:50, c.output_idx].to_csv(dataset_directory / "test_sequence_output.csv", index=False)
 
     # save dataset configuration
     summary_file = dataset_directory / "dataset_config.yaml"
@@ -130,8 +151,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("data_path", type=Path)
-    parser.add_argument("norm_data_path", type=Path)
+    parser.add_argument("input_data_path", type=Path)
     parser.add_argument("--output-directory", type=Path, default=Path("datasets/trainable_datasets"))
     parser.add_argument("--name", type=str)
     args = parser.parse_args()

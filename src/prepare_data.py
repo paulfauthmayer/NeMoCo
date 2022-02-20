@@ -59,8 +59,6 @@ def get_mode(sequence_name: str) -> str:
 def write_mann_data(
     input_df,
     output_df,
-    input_df_norm,
-    output_df_norm,
     output_directory: Path,
     prefix=None
 ):
@@ -70,6 +68,11 @@ def write_mann_data(
     output_df.to_csv(
         output_directory / f"{prefix}Output.txt", sep=" ", header=False, index=False
     )
+
+    # aggregate norming data
+    metrics = ["mean", "std"]
+    input_df_norm = input_df.agg(metrics)
+    output_df_norm = output_df.agg(metrics)
 
     input_df_norm.to_csv(
         output_directory / f"{prefix}InputNorm.txt",
@@ -137,16 +140,22 @@ def load_data(
 
     return input_df, output_df
 
+def calculate_modes(df: pd.DataFrame) -> pd.DataFrame:
+    modes = df["sequence_name"].apply(get_mode)
+    one_hot_modes = pd.get_dummies(modes, prefix="mode")
+    df = pd.concat([df, one_hot_modes], axis=1)
+    return df
+
 
 def prepare_data(
     input_motions: List[Path],
     output_motions: List[Path],
     output_directory: Path,
-    store_mann_version: bool,
     prefix: str = "",
     use_fingers: bool = False,
     use_twist: bool = False,
-) -> Tuple[Path, Path]:
+    store_mann_version: bool = False,
+) -> Tuple[Path, pd.DataFrame]:
 
     # load input and output data from disk
     input_data, output_data = load_data(input_motions, output_motions)
@@ -164,39 +173,28 @@ def prepare_data(
             output_data.filter(regex=twist_regex).columns, axis=1)
 
     # translate sequences to modes
-    modes = input_data["sequence_name"].apply(get_mode)
-    one_hot_modes = pd.get_dummies(modes, prefix="mode")
-    input_data = pd.concat([input_data, one_hot_modes], axis=1)
+    input_data = calculate_modes(input_data)
     input_data = input_data.drop("sequence_name", axis=1)
-
-    # get metrics required for normalization
-    metrics = ["mean", "std"]
-    input_df_norm = input_data.agg(metrics)
-    output_df_norm = output_data.agg(metrics)
 
     # combine dataframes into a single file
     combined_df = pd.concat([input_data, output_data], axis=1)
-    combined_norm = pd.concat([input_df_norm, output_df_norm], axis=1)
 
     # save dataframes to disk
     # using pyarrow instead of pandas speeds up the writing
     # of our csv files by a factor of 5
     prefix_snake = f"{prefix}{'_' if prefix else ''}"
     data_path = output_directory / f"{prefix_snake}motion_data.csv"
-    norm_path = output_directory / f"{prefix_snake}motion_norm.csv"
     pa.csv.write_csv(pa.Table.from_pandas(combined_df, preserve_index=False), data_path)
-    pa.csv.write_csv(pa.Table.from_pandas(combined_norm, preserve_index=False), norm_path)
 
     # this is the format required by the original implementation
     if store_mann_version:
         write_mann_data(
             input_data, output_data,
-            input_df_norm, output_df_norm,
             output_directory,
             prefix=prefix
         )
 
-    return data_path, norm_path
+    return data_path, combined_df
 
 
 def main():

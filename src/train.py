@@ -48,7 +48,9 @@ if __name__ == "__main__":
         EDITOR = os.environ.get('EDITOR', 'vim')
         with NamedTemporaryFile(prefix='config_', mode='w', suffix='.yaml') as temp:
             p.to_yaml(temp.name)
-            subprocess.call([EDITOR, temp.name])
+            ret = subprocess.call([EDITOR, temp.name])
+            if ret != 0:
+                sys.exit("Cancelled training")
             p = TrainingParameters.from_yaml(temp.name)
 
     if args.restart:
@@ -84,12 +86,8 @@ if __name__ == "__main__":
         pattern = r"(?:\d{4}-\d{2}-\d{2}_\d{2}-\d{2}_)(.*)|$"  # matches YYYY-MM-DD_hh_mm
         name = re.findall(pattern, c.name)[0]
 
-    if args.optimize_train:
-        monitor = "loss"
-        file_stem = "ep-{epoch:05d}_tl-{loss:.5f}"
-    else:
-        monitor = "val_loss"
-        file_stem = "ep-{epoch:05d}_vl-{val_loss:.5f}"
+    monitor = "loss" if args.optimize_train else "val_loss"
+    file_stem = f"ep-{{epoch:05d}}_vl-{{{monitor}:.5f}}"
     train_dir_name = f"{date_str}_{name.upper()}"
     train_dir = Path("checkpoints") / train_dir_name
     cloud_dir = Path("/cloud/checkpoints") / train_dir_name

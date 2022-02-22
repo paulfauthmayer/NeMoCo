@@ -109,8 +109,7 @@ class DatasetConfig(BaseConfig):
 
             data_head = pd.read_csv(dataset_csv_path, nrows=0)
 
-            excluded_cols = data_head.filter(regex=r"effector_vel|mode_").columns
-
+            excluded_cols = data_head.filter(regex=r"effector_vel|mode_|sequence_name|placeholder|phase").columns
             self.output_cols = list(
                 data_head
                 .filter(regex=r"^out_")  # matches all that start with "out_"
@@ -119,16 +118,19 @@ class DatasetConfig(BaseConfig):
             )
             self.gating_input_cols = list(
                 data_head
-                .drop(self.output_cols, axis=1)
-                .drop(excluded_cols, axis=1, errors="ignore")
                 .filter(regex=r"root_(position|velocity|direction|angle|length)|(?<!_)effector_ball_[lr]")
+                .drop(data_head.filter("^out_").columns, axis=1, errors="ignore")
+                .drop(self.output_cols, axis=1, errors="ignore")
+                .drop(excluded_cols, axis=1, errors="ignore")
                 .columns
             )
             self.expert_input_cols = list(
                 data_head
-                .drop(self.output_cols, axis=1)
-                .drop(excluded_cols, axis=1, errors="ignore")
                 .drop(data_head.filter(regex=r"foot_[rl]_contact").columns, axis=1)
+                .drop(data_head.filter("^out_").columns, axis=1, errors="ignore")
+                .drop(data_head.filter(regex="pose").columns, axis=1, errors="ignore")
+                .drop(self.output_cols, axis=1, errors="ignore")
+                .drop(excluded_cols, axis=1, errors="ignore")
                 .columns
             )
 

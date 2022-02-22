@@ -63,7 +63,7 @@ class BaseConfig:
     def to_yaml(self, yaml_path: Path) -> None:
         d = self.readable()
         with open(yaml_path, "w") as f:
-            yaml.safe_dump(d, f, sort_keys=False)
+            yaml.safe_dump(d, f, indent=4, sort_keys=False)
 
 
 class DatasetConfig(BaseConfig):
@@ -167,6 +167,7 @@ class TrainingParameters(BaseConfig):
         expert_layer_units: List[int] = [512, 512],
         num_experts: int = 8,
         learn_rate: float = 0.0001,
+        weight_decay : float = 0.0025,
         num_epochs: int = 1000,
         batch_size: int = 256,
         dropout_prob: float = 0.5,
@@ -191,6 +192,7 @@ class TrainingParameters(BaseConfig):
 
         # training specific
         self.learn_rate = learn_rate
+        self.weight_decay = weight_decay
         self.num_epochs = num_epochs
         self.batch_size = batch_size
         self.dropout_prob = dropout_prob

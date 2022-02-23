@@ -30,20 +30,32 @@ if __name__ == "__main__":
     parser.add_argument("--restart", type=Path, help="restart the training with a pretrained model")
     parser.add_argument("--optimize-train", action="store_true", help="use loss instead of validation loss for best models")
     parser.add_argument("--configure", action="store_true", help="open a default train configuration and edit it")
+    parser.add_argument("--load-config", type=Path, nargs="*", default=None)
     args = parser.parse_args()
 
     c = DatasetConfig.from_yaml(args.dataset_directory / "dataset_config.yaml")
 
     # instantiate model
-    p = TrainingParameters(
-        dataset_config=c,
-        num_experts=4,
-        batch_size=128,
-        gating_layer_units=[32, 32, 32],
-        expert_layer_units=[512, 512, 512],
-        dropout_prob=0.5,
-        optimizer="AdaBelief",
-    )
+    if args.load_config is not None:
+        if args.load_config:
+            config_path = args.load_config
+        else:
+            # get latest config file
+            checkpoint_dir = Path("checkpoints")
+            latest_checkpoint_dir = max(checkpoint_dir.iterdir(), key=os.path.getctime)
+            config_path = latest_checkpoint_dir / "train_config.yaml"
+        p = TrainingParameters.from_yaml(config_path)
+    else:
+        p = TrainingParameters(
+            dataset_config=c,
+            num_experts=4,
+            batch_size=128,
+            gating_layer_units=[32, 32, 32],
+            expert_layer_units=[512, 512, 512],
+            dropout_prob=0.5,
+            optimizer="AdaBelief",
+        )
+
     if args.configure:
         EDITOR = os.environ.get('EDITOR', 'vim')
         with NamedTemporaryFile(prefix='config_', mode='w', suffix='.yaml') as temp:

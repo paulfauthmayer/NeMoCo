@@ -3,6 +3,7 @@ from collections import defaultdict
 from pathlib import Path
 from datetime import datetime
 from posixpath import split
+import shutil
 
 import tensorflow as tf
 import numpy as np
@@ -64,6 +65,7 @@ def generate_dataset(
     input_data_path: Path,
     output_directory: Path,
     name: str = "",
+    reuse_preparation: Path = None,
 ):
     # prepare output directory
     dataset_name = datetime.now().strftime("%Y-%m-%d_%H-%M") + (
@@ -74,7 +76,12 @@ def generate_dataset(
     norm_data_path = dataset_directory / "motion_norm.csv"
 
     # prepare data
-    data_path, data = prepare_data([input_data_path], [], output_directory=dataset_directory)
+    if reuse_preparation:
+        data_path = dataset_directory / reuse_preparation.name
+        shutil.copy(reuse_preparation, data_path)
+        data = pd.read_csv(data_path, engine="pyarrow")
+    else:
+        data_path, data = prepare_data([input_data_path], [], output_directory=dataset_directory)
 
     # generate dataset config and define input and output features
     split_ratios = {TRAIN: .7, VAL: .15, TEST: .15}
@@ -110,7 +117,7 @@ def generate_dataset(
 
     # generate standardization data from train data
     train_data = data[data["subset"] == TRAIN]
-    norm_data_df = train_data.drop("subset", axis=1).agg(["mean", "std"])
+    norm_data_df = train_data.drop(["subset", "sequence_name"], axis=1, errors="ignore").agg(["mean", "std"])
     norm_data = norm_data_df.to_numpy()
 
     # save dataset configuration
@@ -122,7 +129,7 @@ def generate_dataset(
         record_file = dataset_directory / f"{subset}.tfrecords"
         with tf.io.TFRecordWriter(str(record_file)) as writer:
             for _, row in tqdm(group.iterrows(), total=c.num_samples_per_split[subset]):
-                sample = row.drop("subset").to_numpy().astype(np.float32)
+                sample = row.drop(["subset", "sequence_name"]).to_numpy().astype(np.float32)
                 example = nemoco_example(sample, norm_data, c)
                 example = example.SerializeToString()
                 writer.write(example)
@@ -156,6 +163,7 @@ if __name__ == "__main__":
     parser.add_argument("input_data_path", type=Path)
     parser.add_argument("--output-directory", type=Path, default=Path("datasets/trainable_datasets"))
     parser.add_argument("--name", type=str)
+    parser.add_argument("--reuse-preparation", type=Path)
     args = parser.parse_args()
 
     generate_dataset(**vars(args))

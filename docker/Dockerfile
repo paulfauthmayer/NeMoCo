@@ -33,6 +33,7 @@ RUN pip install \
     onnxruntime \
     pandas \
     plotly \
+    pyarrow \
     pydot \
     pyyaml \
     scikit-learn \

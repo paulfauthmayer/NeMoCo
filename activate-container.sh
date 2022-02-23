@@ -1,5 +1,6 @@
 #! /bin/bash
 CONTAINERNAME=nemoco
+IMAGENAME=paulfauthmayer/$CONTAINERNAME
 SCRIPT_PATH=$(dirname $(realpath -s $0))
 
 read -p "If this container exists already, it will be overwritten. Are you sure?
@@ -27,4 +28,4 @@ docker run \
     --mount type=bind,source=/home/paul/repos/nemoco-tf,target=/code \
     --mount type=bind,source=/home/paul/mi_cloud/csm/nemoco,target=/cloud \
     -v $SCRIPT_PATH/$BASH_HISTORY:/home/dev/.bash_history \
-    $CONTAINERNAME:latest
+    $IMAGENAME:latest
